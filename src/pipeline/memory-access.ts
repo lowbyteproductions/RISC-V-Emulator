@@ -1,3 +1,4 @@
+import { Register32 } from "../register32";
 import { Execute } from "./execute";
 import { PipelineStage } from "./pipeline-stage";
 
@@ -10,12 +11,9 @@ export class MemoryAccess extends PipelineStage {
   private shouldStall: MemoryAccessParams['shouldStall'];
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
 
-  private aluResult = 0;
-  private aluResultNext = 0;
-  private rd = 0;
-  private rdNext = 0;
-  private isAluOperation = false;
-  private isAluOperationNext = false;
+  private aluResult = new Register32(0);
+  private rd = new Register32(0);
+  private isAluOperation = new Register32(0);
 
   constructor(params: MemoryAccessParams) {
     super();
@@ -26,23 +24,24 @@ export class MemoryAccess extends PipelineStage {
   compute() {
     if (!this.shouldStall()) {
       const {aluResult, rd, isAluOperation} = this.getExecutionValuesIn();
-      this.aluResultNext = aluResult;
-      this.rdNext = rd;
-      this.isAluOperationNext = isAluOperation;
+
+      this.aluResult.value = aluResult;
+      this.rd.value = rd;
+      this.isAluOperation.value = isAluOperation;
     }
   }
 
   latchNext() {
-    this.aluResult = this.aluResultNext;
-    this.rd = this.rdNext;
-    this.isAluOperation = this.isAluOperationNext;
+    this.aluResult.latchNext();
+    this.rd.latchNext();
+    this.isAluOperation.latchNext();
   }
 
   getMemoryAccessValuesOut() {
     return {
-      aluResult: this.aluResult,
-      rd: this.rd,
-      isAluOperation: this.isAluOperation
+      aluResult: this.aluResult.value,
+      rd: this.rd.value,
+      isAluOperation: this.isAluOperation.value,
     }
   }
 }

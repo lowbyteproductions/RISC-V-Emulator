@@ -1,4 +1,4 @@
-import { untwos } from './../util';
+import { boolToInt, untwos } from './../util';
 import { twos } from '../util';
 import { Register32 } from './../register32';
 import { Decode } from "./decode";
@@ -25,10 +25,8 @@ export class Execute extends PipelineStage {
   private getDecodedValuesIn: ExecuteParams['getDecodedValuesIn'];
 
   private aluResult = new Register32(0);
-  private rd = 0;
-  private rdNext = 0;
-  private isAluOperation = false;
-  private isAluOperationNext = false;
+  private rd = new Register32(0);
+  private isAluOperation = new Register32(0);
 
   constructor(params: ExecuteParams) {
     super();
@@ -40,14 +38,14 @@ export class Execute extends PipelineStage {
     if (!this.shouldStall()) {
       const decoded = this.getDecodedValuesIn();
 
-      this.rdNext = decoded.rd;
+      this.rd.value = decoded.rd;
 
       const isRegisterOp = Boolean((decoded.opcode >> 5) & 1);
       const isAlternate = Boolean((decoded.imm11_0 >> 10) & 1);
 
       const imm32 = twos((decoded.imm11_0 << 20) >> 20);
 
-      this.isAluOperationNext = (decoded.opcode & 0b1011111) === 0b0010011;
+      this.isAluOperation.value = boolToInt((decoded.opcode & 0b1011111) === 0b0010011);
 
       switch (decoded.funct3) {
         case ALUOperation.ADD: {
@@ -117,15 +115,15 @@ export class Execute extends PipelineStage {
 
   latchNext() {
     this.aluResult.latchNext();
-    this.rd = this.rdNext;
-    this.isAluOperation = this.isAluOperationNext;
+    this.rd.latchNext();
+    this.isAluOperation.latchNext();
   }
 
   getExecutionValuesOut() {
     return {
       aluResult: this.aluResult.value,
-      rd: this.rd,
-      isAluOperation: this.isAluOperation
+      rd: this.rd.value,
+      isAluOperation: this.isAluOperation.value
     }
   }
 }
