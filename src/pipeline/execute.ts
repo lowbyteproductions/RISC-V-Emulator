@@ -26,7 +26,12 @@ export class Execute extends PipelineStage {
 
   private aluResult = new Register32(0);
   private rd = new Register32(0);
+  private isStore = new Register32(0);
   private isAluOperation = new Register32(0);
+  private imm32 = new Register32(0);
+  private funct3 = new Register32(0);
+  private rs1 = new Register32(0);
+  private rs2 = new Register32(0);
 
   constructor(params: ExecuteParams) {
     super();
@@ -38,14 +43,18 @@ export class Execute extends PipelineStage {
     if (!this.shouldStall()) {
       const decoded = this.getDecodedValuesIn();
 
+      const {imm32} = decoded;
+
       this.rd.value = decoded.rd;
+      this.isAluOperation.value = decoded.isAluOperation;
+      this.isStore.value = decoded.isStore;
+      this.imm32.value = decoded.imm32;
+      this.funct3.value = decoded.funct3;
+      this.rs1.value = decoded.rs1;
+      this.rs2.value = decoded.rs2;
 
       const isRegisterOp = Boolean((decoded.opcode >> 5) & 1);
-      const isAlternate = Boolean((decoded.imm11_0 >> 10) & 1);
-
-      const imm32 = twos((decoded.imm11_0 << 20) >> 20);
-
-      this.isAluOperation.value = boolToInt((decoded.opcode & 0b1011111) === 0b0010011);
+      const isAlternate = Boolean((decoded.instruction >> 30) & 1);
 
       switch (decoded.funct3) {
         case ALUOperation.ADD: {
@@ -117,13 +126,23 @@ export class Execute extends PipelineStage {
     this.aluResult.latchNext();
     this.rd.latchNext();
     this.isAluOperation.latchNext();
+    this.isStore.latchNext();
+    this.imm32.latchNext();
+    this.funct3.latchNext();
+    this.rs1.latchNext();
+    this.rs2.latchNext();
   }
 
   getExecutionValuesOut() {
     return {
       aluResult: this.aluResult.value,
       rd: this.rd.value,
-      isAluOperation: this.isAluOperation.value
+      isAluOperation: this.isAluOperation.value,
+      isStore: this.isStore.value,
+      imm32: this.imm32.value,
+      funct3: this.funct3.value,
+      rs1: this.rs1.value,
+      rs2: this.rs2.value,
     }
   }
 }

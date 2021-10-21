@@ -1,5 +1,6 @@
 import { MemoryMap, SystemInterface } from '../system-interface';
 import { Register32 } from './../register32';
+import { MemoryAccessWidth } from './memory-access';
 import { PipelineStage } from "./pipeline-stage";
 
 export interface InstructionFetchParams {
@@ -22,7 +23,7 @@ export class InstructionFetch extends PipelineStage {
 
   compute() {
     if (!this.shouldStall()) {
-      this.instruction.value = this.bus.read(this.pc.value);
+      this.instruction.value = this.bus.read(this.pc.value, MemoryAccessWidth.Word);
       this.pc.value += 4;
     }
   }

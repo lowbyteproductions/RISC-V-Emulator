@@ -1,4 +1,5 @@
 import { Register32 } from "../register32";
+import { boolToInt, signExtend32 } from "../util";
 import { PipelineStage } from "./pipeline-stage";
 
 export interface DecodeParams {
@@ -14,9 +15,12 @@ export class Decode extends PipelineStage {
   private funct3 = new Register32(0);
   private rs1 = new Register32(0);
   private rs2 = new Register32(0);
-  private imm11_0 = new Register32(0);
   private funct7 = new Register32(0);
   private shamt = new Register32(0);
+
+  private isAluOperation = new Register32(0);
+  private isStore = new Register32(0);
+  private imm32 = new Register32(0);
 
   private regFile: DecodeParams['regFile'];
 
@@ -36,7 +40,6 @@ export class Decode extends PipelineStage {
       this.opcode.value = this.instruction.nextValue & 0x7f;
       this.rd.value = (this.instruction.nextValue >> 7) & 0x1f;
       this.funct3.value = (this.instruction.nextValue >> 12) & 0x07;
-      this.imm11_0.value = (this.instruction.nextValue >>> 20) & 0xfff;
       this.funct7.value = (this.instruction.nextValue >>> 25) & 0x7f;
       const rs1Address = (this.instruction.nextValue >> 15) & 0x1f;
       const rs2Address = (this.instruction.nextValue >> 20) & 0x1f;
@@ -44,6 +47,20 @@ export class Decode extends PipelineStage {
 
       this.rs1.value = rs1Address === 0 ? 0 : this.regFile[rs1Address].value;
       this.rs2.value = rs2Address === 0 ? 0 : this.regFile[rs2Address].value;
+
+      this.isAluOperation.value = boolToInt((this.opcode.nextValue & 0b1011111) === 0b0010011);
+      this.isStore.value = boolToInt(this.opcode.nextValue === 0b0100011);
+
+      const storeImm = signExtend32(12, (((this.instruction.nextValue >> 25) & 0x7f) << 5) | ((this.instruction.nextValue >> 7) & 0x1f));
+      const aluImm = signExtend32(12, this.instruction.nextValue >>> 20);
+
+      if (this.isStore.nextValue) {
+        this.imm32.value = storeImm;
+      } else if (this.isAluOperation.nextValue) {
+        this.imm32.value = aluImm;
+      } else {
+        throw new Error('Not implemented');
+      }
     }
   }
 
@@ -54,9 +71,12 @@ export class Decode extends PipelineStage {
     this.funct3.latchNext();
     this.rs1.latchNext();
     this.rs2.latchNext();
-    this.imm11_0.latchNext();
     this.funct7.latchNext();
     this.shamt.latchNext();
+
+    this.isAluOperation.latchNext();
+    this.isStore.latchNext();
+    this.imm32.latchNext();
   }
 
   getDecodedValuesOut() {
@@ -67,9 +87,12 @@ export class Decode extends PipelineStage {
       funct3: this.funct3.value,
       rs1: this.rs1.value,
       rs2: this.rs2.value,
-      imm11_0: this.imm11_0.value,
       funct7: this.funct7.value,
       shamt: this.shamt.value,
+
+      isAluOperation: this.isAluOperation.value,
+      isStore: this.isStore.value,
+      imm32: this.imm32.value,
     }
   }
 }

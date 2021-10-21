@@ -44,7 +44,8 @@ class RVI32System {
 
   MEM = new MemoryAccess({
     shouldStall: () => this.state !== State.MemoryAccess,
-    getExecutionValuesIn: () => this.EX.getExecutionValuesOut()
+    getExecutionValuesIn: () => this.EX.getExecutionValuesOut(),
+    bus: this.bus
   });
 
   WB = new WriteBack({
@@ -79,19 +80,30 @@ class RVI32System {
       case State.Decode: { this.state = State.Execute; break; }
       case State.Execute: { this.state = State.MemoryAccess; break; }
       case State.MemoryAccess: { this.state = State.WriteBack; break; }
-      case State.WriteBack: { this.state = State.InstructionFetch; break; }
+      case State.WriteBack: { this.state = State.InstructionFetch; debugger; break; }
     }
   }
 }
 
 const rv = new RVI32System();
 
-rv.regFile[1].value = 0x80000000;
-rv.regFile[2].value = 0x00000001;
+// Base Address
+rv.regFile[1].value = 0x20000005;
+
+// Values to write
+rv.regFile[2].value = 0xdeadbeef;
+rv.regFile[3].value = 0xc0decafe;
+rv.regFile[4].value = 0xabad1dea;
+
+//              imm_0     src   base  xxx imm_1 opcode
+const store32 = 0b1111111_00010_00001_010_11111_0100011;
+const store16 = 0b0000000_00011_00001_001_00110_0100011;
+const store8  = 0b0000000_00100_00001_000_00101_0100011;
 
 rv.rom.load(new Uint32Array([
-  //0000000 rs2 rs1 101 rd 0110011 SRL
-  0b0100000_00010_00001_101_00011_0110011
+  store32,
+  store16,
+  store8,
 ]));
 
 
