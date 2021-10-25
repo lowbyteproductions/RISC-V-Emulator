@@ -1,6 +1,6 @@
 import { Register32 } from "../register32";
 import { SystemInterface } from "../system-interface";
-import { twos } from "../util";
+import { signExtend32, twos } from "../util";
 import { Execute } from "./execute";
 import { PipelineStage } from "./pipeline-stage";
 
@@ -21,9 +21,11 @@ export class MemoryAccess extends PipelineStage {
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
 
-  private aluResult = new Register32(0);
+  private writebackValue = new Register32(0);
   private rd = new Register32(0);
   private isAluOperation = new Register32(0);
+  private isLoad = new Register32(0);
+  private isLUI = new Register32(0);
 
   constructor(params: MemoryAccessParams) {
     super();
@@ -34,16 +36,18 @@ export class MemoryAccess extends PipelineStage {
 
   compute() {
     if (!this.shouldStall()) {
-      const {aluResult, rd, isAluOperation, isStore, imm32, rs1, rs2, funct3} = this.getExecutionValuesIn();
+      const {aluResult, rd, isAluOperation, isStore, imm32, rs1, rs2, funct3, isLoad, isLUI} = this.getExecutionValuesIn();
 
-      this.aluResult.value = aluResult;
+      this.writebackValue.value = aluResult;
       this.rd.value = rd;
       this.isAluOperation.value = isAluOperation;
+      this.isLoad.value = isLoad;
+      this.isLUI.value = isLUI;
+
+      // TODO: This should be done in the ALU
+      const addr = twos(imm32 + rs1);
 
       if (isStore) {
-        // TODO: This should be done in the ALU
-        const addr = twos(imm32 + rs1);
-
         switch (funct3) {
           case MemoryAccessWidth.Byte: {
             this.bus.write(addr, rs2 & 0xff, MemoryAccessWidth.Byte);
@@ -60,21 +64,55 @@ export class MemoryAccess extends PipelineStage {
             break;
           }
         }
+      } else if (isLoad) {
+        const shouldSignExtend = (funct3 & 0b100) === 0;
+        let value: number = 0;
+
+        switch (funct3 & 0b011) {
+          case MemoryAccessWidth.Byte: {
+            value = this.bus.read(addr, MemoryAccessWidth.Byte);
+            if (shouldSignExtend) {
+              value = signExtend32(8, value);
+            }
+            break;
+          }
+
+          case MemoryAccessWidth.HalfWord: {
+            value = this.bus.read(addr, MemoryAccessWidth.HalfWord);
+            if (shouldSignExtend) {
+              value = signExtend32(16, value);
+            }
+            break;
+          }
+
+          case MemoryAccessWidth.Word: {
+            value = this.bus.read(addr, MemoryAccessWidth.Word);
+            break;
+          }
+        }
+
+        this.writebackValue.value = value;
+      } else if (isLUI) {
+        this.writebackValue.value = imm32;
       }
     }
   }
 
   latchNext() {
-    this.aluResult.latchNext();
+    this.writebackValue.latchNext();
     this.rd.latchNext();
     this.isAluOperation.latchNext();
+    this.isLoad.latchNext();
+    this.isLUI.latchNext();
   }
 
   getMemoryAccessValuesOut() {
     return {
-      aluResult: this.aluResult.value,
+      writebackValue: this.writebackValue.value,
       rd: this.rd.value,
       isAluOperation: this.isAluOperation.value,
+      isLoad: this.isLoad.value,
+      isLUI: this.isLUI.value,
     }
   }
 }

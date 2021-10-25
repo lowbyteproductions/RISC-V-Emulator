@@ -20,6 +20,8 @@ export class Decode extends PipelineStage {
 
   private isAluOperation = new Register32(0);
   private isStore = new Register32(0);
+  private isLoad = new Register32(0);
+  private isLUI = new Register32(0);
   private imm32 = new Register32(0);
 
   private regFile: DecodeParams['regFile'];
@@ -50,14 +52,19 @@ export class Decode extends PipelineStage {
 
       this.isAluOperation.value = boolToInt((this.opcode.nextValue & 0b1011111) === 0b0010011);
       this.isStore.value = boolToInt(this.opcode.nextValue === 0b0100011);
+      this.isLoad.value  = boolToInt(this.opcode.nextValue === 0b0000011);
+      this.isLUI.value   = boolToInt(this.opcode.nextValue === 0b0110111);
 
-      const storeImm = signExtend32(12, (((this.instruction.nextValue >> 25) & 0x7f) << 5) | ((this.instruction.nextValue >> 7) & 0x1f));
-      const aluImm = signExtend32(12, this.instruction.nextValue >>> 20);
+      const sImm = signExtend32(12, (((this.instruction.nextValue >> 25) & 0x7f) << 5) | ((this.instruction.nextValue >> 7) & 0x1f));
+      const iImm = signExtend32(12, this.instruction.nextValue >>> 20);
+      const uImm = (this.instruction.nextValue >>> 12) << 12;
 
       if (this.isStore.nextValue) {
-        this.imm32.value = storeImm;
-      } else if (this.isAluOperation.nextValue) {
-        this.imm32.value = aluImm;
+        this.imm32.value = sImm;
+      } else if (this.isAluOperation.nextValue || this.isLoad.nextValue) {
+        this.imm32.value = iImm;
+      } else if (this.isLUI.nextValue) {
+        this.imm32.value = uImm;
       } else {
         throw new Error('Not implemented');
       }
@@ -76,6 +83,8 @@ export class Decode extends PipelineStage {
 
     this.isAluOperation.latchNext();
     this.isStore.latchNext();
+    this.isLoad.latchNext();
+    this.isLUI.latchNext();
     this.imm32.latchNext();
   }
 
@@ -92,6 +101,8 @@ export class Decode extends PipelineStage {
 
       isAluOperation: this.isAluOperation.value,
       isStore: this.isStore.value,
+      isLoad: this.isLoad.value,
+      isLUI: this.isLUI.value,
       imm32: this.imm32.value,
     }
   }

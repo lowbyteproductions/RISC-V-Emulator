@@ -27,6 +27,8 @@ export class Execute extends PipelineStage {
   private aluResult = new Register32(0);
   private rd = new Register32(0);
   private isStore = new Register32(0);
+  private isLoad = new Register32(0);
+  private isLUI = new Register32(0);
   private isAluOperation = new Register32(0);
   private imm32 = new Register32(0);
   private funct3 = new Register32(0);
@@ -48,6 +50,8 @@ export class Execute extends PipelineStage {
       this.rd.value = decoded.rd;
       this.isAluOperation.value = decoded.isAluOperation;
       this.isStore.value = decoded.isStore;
+      this.isLoad.value = decoded.isLoad;
+      this.isLUI.value = decoded.isLUI;
       this.imm32.value = decoded.imm32;
       this.funct3.value = decoded.funct3;
       this.rs1.value = decoded.rs1;
@@ -127,6 +131,8 @@ export class Execute extends PipelineStage {
     this.rd.latchNext();
     this.isAluOperation.latchNext();
     this.isStore.latchNext();
+    this.isLoad.latchNext();
+    this.isLUI.latchNext();
     this.imm32.latchNext();
     this.funct3.latchNext();
     this.rs1.latchNext();
@@ -139,6 +145,8 @@ export class Execute extends PipelineStage {
       rd: this.rd.value,
       isAluOperation: this.isAluOperation.value,
       isStore: this.isStore.value,
+      isLoad: this.isLoad.value,
+      isLUI: this.isLUI.value,
       imm32: this.imm32.value,
       funct3: this.funct3.value,
       rs1: this.rs1.value,

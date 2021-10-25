@@ -1,5 +1,5 @@
 import { WriteBack } from './pipeline/write-back';
-import { MemoryAccess } from './pipeline/memory-access';
+import { MemoryAccess, MemoryAccessWidth } from './pipeline/memory-access';
 import { InstructionFetch } from './pipeline/instruction-fetch';
 import { toHexString } from './util';
 import { SystemInterface } from './system-interface';
@@ -87,23 +87,12 @@ class RVI32System {
 
 const rv = new RVI32System();
 
-// Base Address
-rv.regFile[1].value = 0x20000005;
-
-// Values to write
-rv.regFile[2].value = 0xdeadbeef;
-rv.regFile[3].value = 0xc0decafe;
-rv.regFile[4].value = 0xabad1dea;
-
-//              imm_0     src   base  xxx imm_1 opcode
-const store32 = 0b1111111_00010_00001_010_11111_0100011;
-const store16 = 0b0000000_00011_00001_001_00110_0100011;
-const store8  = 0b0000000_00100_00001_000_00101_0100011;
+const lui  = 0b10101010101010101010_00001_0110111;
+const addi = 0b101010101010_00001_000_00001_0010011;
 
 rv.rom.load(new Uint32Array([
-  store32,
-  store16,
-  store8,
+  lui,
+  addi
 ]));
 
 
