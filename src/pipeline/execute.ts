@@ -113,7 +113,7 @@ export class Execute extends PipelineStage {
           break;
         }
 
-        case ALUOperation.XOR: {
+        case ALUOperation.OR: {
           this.aluResult.value = isRegisterOp
             ? decoded.rs1 | decoded.rs2
             : decoded.rs1 | imm32;
