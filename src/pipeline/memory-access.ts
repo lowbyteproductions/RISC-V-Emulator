@@ -23,9 +23,7 @@ export class MemoryAccess extends PipelineStage {
 
   private writebackValue = new Register32(0);
   private rd = new Register32(0);
-  private isAluOperation = new Register32(0);
-  private isLoad = new Register32(0);
-  private isLUI = new Register32(0);
+  private writebackValueValid = new Register32(0);
 
   constructor(params: MemoryAccessParams) {
     super();
@@ -36,16 +34,29 @@ export class MemoryAccess extends PipelineStage {
 
   compute() {
     if (!this.shouldStall()) {
-      const {aluResult, rd, isAluOperation, isStore, imm32, rs1, rs2, funct3, isLoad, isLUI} = this.getExecutionValuesIn();
+      const {
+        aluResult,
+        rd,
+        isAluOperation,
+        isStore,
+        imm32,
+        rs1,
+        rs2,
+        funct3,
+        isLoad,
+        isLUI,
+        isJAL,
+        isJALR,
+        pcPlus4
+      } = this.getExecutionValuesIn();
 
       this.writebackValue.value = aluResult;
       this.rd.value = rd;
-      this.isAluOperation.value = isAluOperation;
-      this.isLoad.value = isLoad;
-      this.isLUI.value = isLUI;
 
       // TODO: This should be done in the ALU
       const addr = twos(imm32 + rs1);
+
+      this.writebackValueValid.value = isStore | isAluOperation | isLUI | isJAL | isJALR;
 
       if (isStore) {
         switch (funct3) {
@@ -94,6 +105,8 @@ export class MemoryAccess extends PipelineStage {
         this.writebackValue.value = value;
       } else if (isLUI) {
         this.writebackValue.value = imm32;
+      } else if (isJAL | isJALR) {
+        this.writebackValue.value = pcPlus4;
       }
     }
   }
@@ -101,18 +114,14 @@ export class MemoryAccess extends PipelineStage {
   latchNext() {
     this.writebackValue.latchNext();
     this.rd.latchNext();
-    this.isAluOperation.latchNext();
-    this.isLoad.latchNext();
-    this.isLUI.latchNext();
+    this.writebackValueValid.latchNext();
   }
 
   getMemoryAccessValuesOut() {
     return {
       writebackValue: this.writebackValue.value,
       rd: this.rd.value,
-      isAluOperation: this.isAluOperation.value,
-      isLoad: this.isLoad.value,
-      isLUI: this.isLUI.value,
+      writebackValueValid: this.writebackValueValid.value,
     }
   }
 }

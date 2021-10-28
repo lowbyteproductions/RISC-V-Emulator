@@ -9,6 +9,9 @@ import { Decode } from './pipeline/decode';
 import { Register32 } from './register32';
 import { Execute } from './pipeline/execute';
 
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
 enum State {
   InstructionFetch,
   Decode,
@@ -28,12 +31,17 @@ class RVI32System {
 
   IF = new InstructionFetch({
     shouldStall: () => this.state !== State.InstructionFetch,
+    getBranchAddress: () => this.DE.getDecodedValuesOut().branchAddress,
+    getBranchAddressValid: () => {
+      const decoded = this.DE.getDecodedValuesOut();
+      return Boolean(decoded.isJAL | decoded.isJALR);
+    },
     bus: this.bus,
   });
 
-  DE = new Decode({
+  DE: Decode = new Decode({
     shouldStall: () => this.state !== State.Decode,
-    getInstructionIn: () => this.IF.getInstructionOut(),
+    getInstructionValuesIn: () => this.IF.getInstructionValuesOut(),
     regFile: this.regFile
   });
 
@@ -85,17 +93,17 @@ class RVI32System {
   }
 }
 
-const rv = new RVI32System();
+const main = async () => {
+  const rv = new RVI32System();
 
-const lui  = 0b10101010101010101010_00001_0110111;
-const addi = 0b101010101010_00001_000_00001_0010011;
+  const file = await fs.readFile(path.join(__dirname, '..', 'system-code', 'main.bin'));
+  const program = new Uint32Array(file.buffer);
 
-rv.rom.load(new Uint32Array([
-  lui,
-  addi
-]));
+  rv.rom.load(program);
 
-
-while (true) {
-  rv.cycle();
+  while (true) {
+    rv.cycle();
+  }
 }
+
+main();

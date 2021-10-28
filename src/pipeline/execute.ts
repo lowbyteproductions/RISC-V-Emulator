@@ -29,11 +29,14 @@ export class Execute extends PipelineStage {
   private isStore = new Register32(0);
   private isLoad = new Register32(0);
   private isLUI = new Register32(0);
+  private isJAL = new Register32(0);
+  private isJALR = new Register32(0);
   private isAluOperation = new Register32(0);
   private imm32 = new Register32(0);
   private funct3 = new Register32(0);
   private rs1 = new Register32(0);
   private rs2 = new Register32(0);
+  private pcPlus4 = new Register32(0);
 
   constructor(params: ExecuteParams) {
     super();
@@ -52,10 +55,13 @@ export class Execute extends PipelineStage {
       this.isStore.value = decoded.isStore;
       this.isLoad.value = decoded.isLoad;
       this.isLUI.value = decoded.isLUI;
+      this.isJAL.value = decoded.isJAL;
+      this.isJALR.value = decoded.isJALR;
       this.imm32.value = decoded.imm32;
       this.funct3.value = decoded.funct3;
       this.rs1.value = decoded.rs1;
       this.rs2.value = decoded.rs2;
+      this.pcPlus4.value = decoded.pcPlus4;
 
       const isRegisterOp = Boolean((decoded.opcode >> 5) & 1);
       const isAlternate = Boolean((decoded.instruction >> 30) & 1);
@@ -133,10 +139,13 @@ export class Execute extends PipelineStage {
     this.isStore.latchNext();
     this.isLoad.latchNext();
     this.isLUI.latchNext();
+    this.isJAL.latchNext();
+    this.isJALR.latchNext();
     this.imm32.latchNext();
     this.funct3.latchNext();
     this.rs1.latchNext();
     this.rs2.latchNext();
+    this.pcPlus4.latchNext();
   }
 
   getExecutionValuesOut() {
@@ -147,10 +156,13 @@ export class Execute extends PipelineStage {
       isStore: this.isStore.value,
       isLoad: this.isLoad.value,
       isLUI: this.isLUI.value,
+      isJAL: this.isJAL.value,
+      isJALR: this.isJALR.value,
       imm32: this.imm32.value,
       funct3: this.funct3.value,
       rs1: this.rs1.value,
       rs2: this.rs2.value,
+      pcPlus4: this.pcPlus4.value,
     }
   }
 }

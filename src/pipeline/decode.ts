@@ -1,10 +1,11 @@
 import { Register32 } from "../register32";
-import { boolToInt, signExtend32 } from "../util";
+import { bit, boolToInt, signExtend32, slice32 } from "../util";
+import { InstructionFetch } from "./instruction-fetch";
 import { PipelineStage } from "./pipeline-stage";
 
 export interface DecodeParams {
   shouldStall: () => boolean;
-  getInstructionIn: () => number;
+  getInstructionValuesIn: () => ReturnType<InstructionFetch['getInstructionValuesOut']>;
   regFile: Array<Register32>;
 }
 
@@ -22,23 +23,33 @@ export class Decode extends PipelineStage {
   private isStore = new Register32(0);
   private isLoad = new Register32(0);
   private isLUI = new Register32(0);
+  private isJAL = new Register32(0);
+  private isJALR = new Register32(0);
   private imm32 = new Register32(0);
+  private branchAddress = new Register32(0);
+  private pc = new Register32(0);
+  private pcPlus4 = new Register32(0);
 
   private regFile: DecodeParams['regFile'];
 
   private shouldStall: DecodeParams['shouldStall'];
-  private getInstructionIn: DecodeParams['getInstructionIn'];
+  private getInstructionValuesIn: DecodeParams['getInstructionValuesIn'];
 
   constructor(params: DecodeParams) {
     super();
     this.shouldStall = params.shouldStall;
-    this.getInstructionIn = params.getInstructionIn;
+    this.getInstructionValuesIn = params.getInstructionValuesIn;
     this.regFile = params.regFile;
   }
 
   compute() {
     if (!this.shouldStall()) {
-      this.instruction.value = this.getInstructionIn();
+      const {instruction, pc, pcPlus4} = this.getInstructionValuesIn();
+
+      this.pc.value = pc;
+      this.pcPlus4.value = pcPlus4;
+
+      this.instruction.value = instruction;
       this.opcode.value = this.instruction.nextValue & 0x7f;
       this.rd.value = (this.instruction.nextValue >> 7) & 0x1f;
       this.funct3.value = (this.instruction.nextValue >> 12) & 0x07;
@@ -54,10 +65,15 @@ export class Decode extends PipelineStage {
       this.isStore.value = boolToInt(this.opcode.nextValue === 0b0100011);
       this.isLoad.value  = boolToInt(this.opcode.nextValue === 0b0000011);
       this.isLUI.value   = boolToInt(this.opcode.nextValue === 0b0110111);
+      this.isJAL.value   = boolToInt(this.opcode.nextValue === 0b1101111);
+      this.isJALR.value  = boolToInt(this.opcode.nextValue === 0b1100111);
 
-      const sImm = signExtend32(12, (((this.instruction.nextValue >> 25) & 0x7f) << 5) | ((this.instruction.nextValue >> 7) & 0x1f));
-      const iImm = signExtend32(12, this.instruction.nextValue >>> 20);
-      const uImm = (this.instruction.nextValue >>> 12) << 12;
+      const i = this.instruction.nextValue;
+
+      const sImm = signExtend32(12, (((i >> 25) & 0x7f) << 5) | ((i >> 7) & 0x1f));
+      const iImm = signExtend32(12, i >>> 20);
+      const uImm = (i >>> 12) << 12;
+      const jImm = signExtend32(21, (bit(31, i, 20) | slice32(19, 12, i, 19) | bit(20, i, 11) | slice32(30, 21, i, 10)) << 1);
 
       if (this.isStore.nextValue) {
         this.imm32.value = sImm;
@@ -65,6 +81,12 @@ export class Decode extends PipelineStage {
         this.imm32.value = iImm;
       } else if (this.isLUI.nextValue) {
         this.imm32.value = uImm;
+      } else if (this.isJAL.nextValue) {
+        this.imm32.value = jImm;
+        this.branchAddress.value = pc + jImm;
+      } else if (this.isJALR.nextValue) {
+        this.imm32.value = iImm;
+        this.branchAddress.value = this.rs1.nextValue + slice32(11, 1, iImm, 11);
       } else {
         throw new Error('Not implemented');
       }
@@ -85,7 +107,12 @@ export class Decode extends PipelineStage {
     this.isStore.latchNext();
     this.isLoad.latchNext();
     this.isLUI.latchNext();
+    this.isJAL.latchNext();
+    this.isJALR.latchNext();
     this.imm32.latchNext();
+    this.branchAddress.latchNext();
+    this.pc.latchNext();
+    this.pcPlus4.latchNext();
   }
 
   getDecodedValuesOut() {
@@ -103,7 +130,12 @@ export class Decode extends PipelineStage {
       isStore: this.isStore.value,
       isLoad: this.isLoad.value,
       isLUI: this.isLUI.value,
+      isJAL: this.isJAL.value,
+      isJALR: this.isJALR.value,
       imm32: this.imm32.value,
+      branchAddress: this.branchAddress.value,
+      pc: this.pc.value,
+      pcPlus4: this.pcPlus4.value,
     }
   }
 }

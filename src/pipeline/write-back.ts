@@ -22,9 +22,9 @@ export class WriteBack extends PipelineStage {
 
   compute() {
     if (!this.shouldStall()) {
-      const {writebackValue, rd, isAluOperation, isLoad, isLUI} = this.getMemoryAccessValuesIn();
+      const {writebackValue, rd, writebackValueValid} = this.getMemoryAccessValuesIn();
 
-      if (isAluOperation || isLoad || isLUI) {
+      if (writebackValueValid) {
         this.regFile[rd].value = writebackValue;
       }
     }
