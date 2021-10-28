@@ -31,11 +31,6 @@ export class InstructionFetch extends PipelineStage {
   compute() {
     if (!this.shouldStall()) {
       this.pc.value = this.getBranchAddressValid() ? this.getBranchAddress() : this.pcPlus4.value;
-
-      if (this.pc.nextValue === 0x10000038) {
-        debugger;
-      }
-
       this.pcPlus4.value = this.pc.nextValue + 4;
       this.instruction.value = this.bus.read(this.pc.nextValue, MemoryAccessWidth.Word);
     }

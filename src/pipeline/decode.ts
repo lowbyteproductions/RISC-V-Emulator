@@ -22,9 +22,8 @@ export class Decode extends PipelineStage {
   private isAluOperation = new Register32(0);
   private isStore = new Register32(0);
   private isLoad = new Register32(0);
+  private isJump = new Register32(0);
   private isLUI = new Register32(0);
-  private isJAL = new Register32(0);
-  private isJALR = new Register32(0);
   private imm32 = new Register32(0);
   private branchAddress = new Register32(0);
   private pc = new Register32(0);
@@ -65,8 +64,10 @@ export class Decode extends PipelineStage {
       this.isStore.value = boolToInt(this.opcode.nextValue === 0b0100011);
       this.isLoad.value  = boolToInt(this.opcode.nextValue === 0b0000011);
       this.isLUI.value   = boolToInt(this.opcode.nextValue === 0b0110111);
-      this.isJAL.value   = boolToInt(this.opcode.nextValue === 0b1101111);
-      this.isJALR.value  = boolToInt(this.opcode.nextValue === 0b1100111);
+      const isJAL        = boolToInt(this.opcode.nextValue === 0b1101111);
+      const isJALR       = boolToInt(this.opcode.nextValue === 0b1100111);
+
+      this.isJump.value = isJAL | isJALR;
 
       const i = this.instruction.nextValue;
 
@@ -81,10 +82,10 @@ export class Decode extends PipelineStage {
         this.imm32.value = iImm;
       } else if (this.isLUI.nextValue) {
         this.imm32.value = uImm;
-      } else if (this.isJAL.nextValue) {
+      } else if (isJAL) {
         this.imm32.value = jImm;
         this.branchAddress.value = pc + jImm;
-      } else if (this.isJALR.nextValue) {
+      } else if (isJALR) {
         this.imm32.value = iImm;
         this.branchAddress.value = this.rs1.nextValue + slice32(11, 1, iImm, 11);
       } else {
@@ -107,8 +108,7 @@ export class Decode extends PipelineStage {
     this.isStore.latchNext();
     this.isLoad.latchNext();
     this.isLUI.latchNext();
-    this.isJAL.latchNext();
-    this.isJALR.latchNext();
+    this.isJump.latchNext();
     this.imm32.latchNext();
     this.branchAddress.latchNext();
     this.pc.latchNext();
@@ -130,8 +130,7 @@ export class Decode extends PipelineStage {
       isStore: this.isStore.value,
       isLoad: this.isLoad.value,
       isLUI: this.isLUI.value,
-      isJAL: this.isJAL.value,
-      isJALR: this.isJALR.value,
+      isJump: this.isJump.value,
       imm32: this.imm32.value,
       branchAddress: this.branchAddress.value,
       pc: this.pc.value,

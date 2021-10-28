@@ -29,8 +29,7 @@ export class Execute extends PipelineStage {
   private isStore = new Register32(0);
   private isLoad = new Register32(0);
   private isLUI = new Register32(0);
-  private isJAL = new Register32(0);
-  private isJALR = new Register32(0);
+  private isJump = new Register32(0);
   private isAluOperation = new Register32(0);
   private imm32 = new Register32(0);
   private funct3 = new Register32(0);
@@ -55,8 +54,7 @@ export class Execute extends PipelineStage {
       this.isStore.value = decoded.isStore;
       this.isLoad.value = decoded.isLoad;
       this.isLUI.value = decoded.isLUI;
-      this.isJAL.value = decoded.isJAL;
-      this.isJALR.value = decoded.isJALR;
+      this.isJump.value = decoded.isJump;
       this.imm32.value = decoded.imm32;
       this.funct3.value = decoded.funct3;
       this.rs1.value = decoded.rs1;
@@ -139,8 +137,7 @@ export class Execute extends PipelineStage {
     this.isStore.latchNext();
     this.isLoad.latchNext();
     this.isLUI.latchNext();
-    this.isJAL.latchNext();
-    this.isJALR.latchNext();
+    this.isJump.latchNext();
     this.imm32.latchNext();
     this.funct3.latchNext();
     this.rs1.latchNext();
@@ -156,8 +153,7 @@ export class Execute extends PipelineStage {
       isStore: this.isStore.value,
       isLoad: this.isLoad.value,
       isLUI: this.isLUI.value,
-      isJAL: this.isJAL.value,
-      isJALR: this.isJALR.value,
+      isJump: this.isJump.value,
       imm32: this.imm32.value,
       funct3: this.funct3.value,
       rs1: this.rs1.value,

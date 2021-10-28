@@ -34,7 +34,7 @@ class RVI32System {
     getBranchAddress: () => this.DE.getDecodedValuesOut().branchAddress,
     getBranchAddressValid: () => {
       const decoded = this.DE.getDecodedValuesOut();
-      return Boolean(decoded.isJAL | decoded.isJALR);
+      return Boolean(decoded.isJump);
     },
     bus: this.bus,
   });
