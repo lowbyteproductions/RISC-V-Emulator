@@ -55,7 +55,7 @@ export class MemoryAccess extends PipelineStage {
       // TODO: This should be done in the ALU
       const addr = twos(imm32 + rs1);
 
-      this.writebackValueValid.value = isStore | isAluOperation | isLUI | isJump;
+      this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump;
 
       if (isStore) {
         switch (funct3) {
