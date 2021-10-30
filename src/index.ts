@@ -29,6 +29,8 @@ class RVI32System {
 
   bus = new SystemInterface(this.rom, this.ram);
 
+  private breakpoints = new Set<number>();
+
   IF = new InstructionFetch({
     shouldStall: () => this.state !== State.InstructionFetch,
     getBranchAddress: () => this.DE.getDecodedValuesOut().branchAddress,
@@ -79,16 +81,31 @@ class RVI32System {
     this.regFile.forEach(r => r.latchNext());
   }
 
+  addBreakpoint(address: number) {
+    this.breakpoints.add(address);
+  }
+
+  removeBreakpoint(address: number) {
+    this.breakpoints.delete(address);
+  }
+
   cycle() {
     this.compute();
     this.latchNext();
+
+    if (this.state === State.InstructionFetch) {
+      const pc = this.IF.getInstructionValuesOut().pc;
+      if (this.breakpoints.has(pc)) {
+        debugger;
+      }
+    }
 
     switch (this.state) {
       case State.InstructionFetch: { this.state = State.Decode; break; }
       case State.Decode: { this.state = State.Execute; break; }
       case State.Execute: { this.state = State.MemoryAccess; break; }
       case State.MemoryAccess: { this.state = State.WriteBack; break; }
-      case State.WriteBack: { this.state = State.InstructionFetch; debugger; break; }
+      case State.WriteBack: { this.state = State.InstructionFetch; break; }
     }
   }
 }
@@ -100,6 +117,8 @@ const main = async () => {
   const program = new Uint32Array(file.buffer);
 
   rv.rom.load(program);
+
+  rv.addBreakpoint(0x10000000);
 
   while (true) {
     rv.cycle();
