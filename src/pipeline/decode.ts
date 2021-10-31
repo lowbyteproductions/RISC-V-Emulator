@@ -24,8 +24,9 @@ export class Decode extends PipelineStage {
   private isLoad = new Register32(0);
   private isJump = new Register32(0);
   private isLUI = new Register32(0);
+  private isBranch = new Register32(0);
+  private isJAL = new Register32(0);
   private imm32 = new Register32(0);
-  private branchAddress = new Register32(0);
   private pc = new Register32(0);
   private pcPlus4 = new Register32(0);
 
@@ -61,13 +62,14 @@ export class Decode extends PipelineStage {
       this.rs2.value = rs2Address === 0 ? 0 : this.regFile[rs2Address].value;
 
       this.isAluOperation.value = boolToInt((this.opcode.nextValue & 0b1011111) === 0b0010011);
-      this.isStore.value = boolToInt(this.opcode.nextValue === 0b0100011);
-      this.isLoad.value  = boolToInt(this.opcode.nextValue === 0b0000011);
-      this.isLUI.value   = boolToInt(this.opcode.nextValue === 0b0110111);
-      const isJAL        = boolToInt(this.opcode.nextValue === 0b1101111);
-      const isJALR       = boolToInt(this.opcode.nextValue === 0b1100111);
+      this.isStore.value  = boolToInt(this.opcode.nextValue === 0b0100011);
+      this.isLoad.value   = boolToInt(this.opcode.nextValue === 0b0000011);
+      this.isLUI.value    = boolToInt(this.opcode.nextValue === 0b0110111);
+      this.isBranch.value = boolToInt(this.opcode.nextValue === 0b1100011);
+      this.isJAL.value    = boolToInt(this.opcode.nextValue === 0b1101111);
+      const isJALR        = boolToInt(this.opcode.nextValue === 0b1100111);
 
-      this.isJump.value = isJAL | isJALR;
+      this.isJump.value = this.isJAL.nextValue | isJALR;
 
       const i = this.instruction.nextValue;
 
@@ -75,6 +77,7 @@ export class Decode extends PipelineStage {
       const iImm = signExtend32(12, i >>> 20);
       const uImm = (i >>> 12) << 12;
       const jImm = signExtend32(21, (bit(31, i, 20) | slice32(19, 12, i, 19) | bit(20, i, 11) | slice32(30, 21, i, 10)) << 1);
+      const bImm = signExtend32(13, (bit(31, i, 12) | bit(7, i, 11) | slice32(30, 25, i, 10) | slice32(11, 8, i, 4)) << 1);
 
       if (this.isStore.nextValue) {
         this.imm32.value = sImm;
@@ -82,13 +85,13 @@ export class Decode extends PipelineStage {
         this.imm32.value = iImm;
       } else if (this.isLUI.nextValue) {
         this.imm32.value = uImm;
-      } else if (isJAL) {
+      } else if (this.isJAL.nextValue) {
         this.imm32.value = jImm;
-        this.branchAddress.value = pc + jImm;
+      } else if (this.isBranch.nextValue) {
+        this.imm32.value = bImm;
       } else if (isJALR) {
-        this.imm32.value = iImm;
-        this.branchAddress.value = this.rs1.nextValue + slice32(11, 1, iImm, 11);
-      } else {
+        this.imm32.value = slice32(11, 1, iImm, 11);
+      }  else {
         throw new Error('Not implemented');
       }
     }
@@ -109,8 +112,9 @@ export class Decode extends PipelineStage {
     this.isLoad.latchNext();
     this.isLUI.latchNext();
     this.isJump.latchNext();
+    this.isJAL.latchNext();
+    this.isBranch.latchNext();
     this.imm32.latchNext();
-    this.branchAddress.latchNext();
     this.pc.latchNext();
     this.pcPlus4.latchNext();
   }
@@ -131,8 +135,9 @@ export class Decode extends PipelineStage {
       isLoad: this.isLoad.value,
       isLUI: this.isLUI.value,
       isJump: this.isJump.value,
+      isJAL: this.isJAL.value,
+      isBranch: this.isBranch.value,
       imm32: this.imm32.value,
-      branchAddress: this.branchAddress.value,
       pc: this.pc.value,
       pcPlus4: this.pcPlus4.value,
     }

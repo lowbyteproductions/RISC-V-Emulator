@@ -33,11 +33,8 @@ class RVI32System {
 
   IF = new InstructionFetch({
     shouldStall: () => this.state !== State.InstructionFetch,
-    getBranchAddress: () => this.DE.getDecodedValuesOut().branchAddress,
-    getBranchAddressValid: () => {
-      const decoded = this.DE.getDecodedValuesOut();
-      return Boolean(decoded.isJump);
-    },
+    getBranchAddress: () => this.EX.getExecutionValuesOut().branchAddress,
+    getBranchAddressValid: () => Boolean(this.EX.getExecutionValuesOut().branchValid),
     bus: this.bus,
   });
 
@@ -47,7 +44,7 @@ class RVI32System {
     regFile: this.regFile
   });
 
-  EX = new Execute({
+  EX: Execute = new Execute({
     shouldStall: () => this.state !== State.Execute,
     getDecodedValuesIn: () => this.DE.getDecodedValuesOut()
   });
@@ -118,7 +115,7 @@ const main = async () => {
 
   rv.rom.load(program);
 
-  rv.addBreakpoint(0x10000000);
+  rv.addBreakpoint(0x100000e4);
 
   while (true) {
     rv.cycle();
