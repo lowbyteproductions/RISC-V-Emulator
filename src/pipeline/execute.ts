@@ -119,8 +119,8 @@ export class Execute extends PipelineStage {
 
       const eqResult = Number(decoded.rs1 === decoded.rs2);
       const neqResult = (~eqResult) & 1;
-      const gteResult = Number(untwos(decoded.rs1) > untwos(decoded.rs2));
-      const gteuResult = Number(decoded.rs1 > decoded.rs2);
+      const gteResult = (~sltResult) & 1;
+      const gteuResult = (~sltuResult) & 1;
 
       switch (decoded.funct3) {
         case ALUOperation.ADD: this.aluResult.value = addResult; break;
