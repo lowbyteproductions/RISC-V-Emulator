@@ -20,7 +20,7 @@ enum State {
   WriteBack
 }
 
-class RVI32System {
+class RV32ISystem {
   state = State.InstructionFetch;
 
   rom = new ROMDevice();
@@ -108,7 +108,7 @@ class RVI32System {
 }
 
 const main = async () => {
-  const rv = new RVI32System();
+  const rv = new RV32ISystem();
 
   const file = await fs.readFile(path.join(__dirname, '..', 'system-code', 'main.bin'));
   const program = new Uint32Array(file.buffer);
