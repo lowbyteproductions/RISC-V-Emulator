@@ -1,6 +1,6 @@
 import { WriteBack } from './pipeline/write-back';
 import { MemoryAccess, MemoryAccessWidth } from './pipeline/memory-access';
-import { InstructionFetch } from './pipeline/instruction-fetch';
+import { InstructionFetch } from './pipeline/fetch';
 import { toHexString } from './util';
 import { SystemInterface } from './system-interface';
 import { RAMDevice } from './system-interface/ram';

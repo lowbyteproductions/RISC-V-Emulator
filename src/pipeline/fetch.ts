@@ -1,5 +1,5 @@
 import { MemoryMap, SystemInterface } from '../system-interface';
-import { Register32 } from './../register32';
+import { Register32 } from '../register32';
 import { MemoryAccessWidth } from './memory-access';
 import { PipelineStage } from "./pipeline-stage";
 

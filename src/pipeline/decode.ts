@@ -1,6 +1,6 @@
 import { Register32 } from "../register32";
 import { bit, boolToInt, signExtend32, slice32 } from "../util";
-import { InstructionFetch } from "./instruction-fetch";
+import { InstructionFetch } from "./fetch";
 import { PipelineStage } from "./pipeline-stage";
 
 export interface DecodeParams {
