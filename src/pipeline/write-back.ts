@@ -30,7 +30,5 @@ export class WriteBack extends PipelineStage {
     }
   }
 
-  latchNext() {
-
-  }
+  latchNext() {}
 }

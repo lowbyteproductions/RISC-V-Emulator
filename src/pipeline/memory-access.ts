@@ -1,4 +1,3 @@
-import { Register32 } from "../register32";
 import { SystemInterface } from "../system-interface";
 import { signExtend32, twos } from "../util";
 import { Execute } from "./execute";
@@ -21,9 +20,9 @@ export class MemoryAccess extends PipelineStage {
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
 
-  private writebackValue = new Register32(0);
-  private rd = new Register32(0);
-  private writebackValueValid = new Register32(0);
+  private writebackValue = this.regs.addRegister('writebackValue');
+  private rd = this.regs.addRegister('rd');
+  private writebackValueValid = this.regs.addRegister('writebackValueValid');
 
   constructor(params: MemoryAccessParams) {
     super();
@@ -111,16 +110,14 @@ export class MemoryAccess extends PipelineStage {
   }
 
   latchNext() {
-    this.writebackValue.latchNext();
-    this.rd.latchNext();
-    this.writebackValueValid.latchNext();
+    this.regs.latchNext();
   }
 
   getMemoryAccessValuesOut() {
-    return {
-      writebackValue: this.writebackValue.value,
-      rd: this.rd.value,
-      writebackValueValid: this.writebackValueValid.value,
-    }
+    return this.regs.getValuesObject<
+      | 'writebackValue'
+      | 'rd'
+      | 'writebackValueValid'
+    >();
   }
 }

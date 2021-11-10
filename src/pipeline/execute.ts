@@ -1,6 +1,5 @@
 import { boolToInt, untwos } from './../util';
 import { twos } from '../util';
-import { Register32 } from './../register32';
 import { Decode } from "./decode";
 import { PipelineStage } from "./pipeline-stage";
 
@@ -33,20 +32,20 @@ export class Execute extends PipelineStage {
   private shouldStall: ExecuteParams['shouldStall'];
   private getDecodedValuesIn: ExecuteParams['getDecodedValuesIn'];
 
-  private aluResult = new Register32(0);
-  private rd = new Register32(0);
-  private isStore = new Register32(0);
-  private isLoad = new Register32(0);
-  private isLUI = new Register32(0);
-  private isJump = new Register32(0);
-  private isAluOperation = new Register32(0);
-  private imm32 = new Register32(0);
-  private funct3 = new Register32(0);
-  private rs1 = new Register32(0);
-  private rs2 = new Register32(0);
-  private branchAddress = new Register32(0);
-  private branchValid = new Register32(0);
-  private pcPlus4 = new Register32(0);
+  private aluResult = this.regs.addRegister('aluResult');
+  private rd = this.regs.addRegister('rd');
+  private isStore = this.regs.addRegister('isStore');
+  private isLoad = this.regs.addRegister('isLoad');
+  private isLUI = this.regs.addRegister('isLUI');
+  private isJump = this.regs.addRegister('isJump');
+  private isAluOperation = this.regs.addRegister('isAluOperation');
+  private imm32 = this.regs.addRegister('imm32');
+  private funct3 = this.regs.addRegister('funct3');
+  private rs1 = this.regs.addRegister('rs1');
+  private rs2 = this.regs.addRegister('rs2');
+  private branchAddress = this.regs.addRegister('branchAddress');
+  private branchValid = this.regs.addRegister('branchValid');
+  private pcPlus4 = this.regs.addRegister('pcPlus4');
 
   constructor(params: ExecuteParams) {
     super();
@@ -147,38 +146,25 @@ export class Execute extends PipelineStage {
   }
 
   latchNext() {
-    this.aluResult.latchNext();
-    this.rd.latchNext();
-    this.isAluOperation.latchNext();
-    this.isStore.latchNext();
-    this.isLoad.latchNext();
-    this.isLUI.latchNext();
-    this.isJump.latchNext();
-    this.imm32.latchNext();
-    this.funct3.latchNext();
-    this.rs1.latchNext();
-    this.rs2.latchNext();
-    this.pcPlus4.latchNext();
-    this.branchAddress.latchNext();
-    this.branchValid.latchNext();
+    this.regs.latchNext();
   }
 
   getExecutionValuesOut() {
-    return {
-      aluResult: this.aluResult.value,
-      rd: this.rd.value,
-      isAluOperation: this.isAluOperation.value,
-      isStore: this.isStore.value,
-      isLoad: this.isLoad.value,
-      isLUI: this.isLUI.value,
-      isJump: this.isJump.value,
-      imm32: this.imm32.value,
-      funct3: this.funct3.value,
-      rs1: this.rs1.value,
-      rs2: this.rs2.value,
-      pcPlus4: this.pcPlus4.value,
-      branchAddress: this.branchAddress.value,
-      branchValid: this.branchValid.value,
-    }
+    return this.regs.getValuesObject<
+      | 'aluResult'
+      | 'rd'
+      | 'isStore'
+      | 'isLoad'
+      | 'isLUI'
+      | 'isJump'
+      | 'isAluOperation'
+      | 'imm32'
+      | 'funct3'
+      | 'rs1'
+      | 'rs2'
+      | 'branchAddress'
+      | 'branchValid'
+      | 'pcPlus4'
+    >();
   }
 }

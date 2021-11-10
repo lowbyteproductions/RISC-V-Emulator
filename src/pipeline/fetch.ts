@@ -1,5 +1,4 @@
 import { MemoryMap, SystemInterface } from '../system-interface';
-import { Register32 } from '../register32';
 import { MemoryAccessWidth } from './memory-access';
 import { PipelineStage } from "./pipeline-stage";
 
@@ -11,9 +10,9 @@ export interface InstructionFetchParams {
 }
 
 export class InstructionFetch extends PipelineStage {
-  private pc = new Register32(MemoryMap.ProgramROMStart);
-  private pcPlus4 = new Register32(MemoryMap.ProgramROMStart);
-  private instruction = new Register32(0);
+  private pc = this.regs.addRegister('pc', MemoryMap.ProgramROMStart);
+  private pcPlus4 = this.regs.addRegister('pcPlus4', MemoryMap.ProgramROMStart);
+  private instruction = this.regs.addRegister('instruction');
 
   private bus: InstructionFetchParams['bus'];
   private getBranchAddress: InstructionFetchParams['getBranchAddress'];
@@ -37,16 +36,14 @@ export class InstructionFetch extends PipelineStage {
   }
 
   latchNext() {
-    this.instruction.latchNext();
-    this.pc.latchNext();
-    this.pcPlus4.latchNext();
+    this.regs.latchNext();
   }
 
   getInstructionValuesOut() {
-    return {
-      instruction: this.instruction.value,
-      pc: this.pc.value,
-      pcPlus4: this.pcPlus4.value,
-    };
+    return this.regs.getValuesObject<
+      | 'instruction'
+      | 'pc'
+      | 'pcPlus4'
+    >();
   }
 }

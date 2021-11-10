@@ -10,25 +10,25 @@ export interface DecodeParams {
 }
 
 export class Decode extends PipelineStage {
-  private instruction = new Register32(0);
-  private opcode = new Register32(0);
-  private rd = new Register32(0);
-  private funct3 = new Register32(0);
-  private rs1 = new Register32(0);
-  private rs2 = new Register32(0);
-  private funct7 = new Register32(0);
-  private shamt = new Register32(0);
+  private instruction = this.regs.addRegister('instruction');
+  private opcode = this.regs.addRegister('opcode');
+  private rd = this.regs.addRegister('rd');
+  private funct3 = this.regs.addRegister('funct3');
+  private rs1 = this.regs.addRegister('rs1');
+  private rs2 = this.regs.addRegister('rs2');
+  private funct7 = this.regs.addRegister('funct7');
+  private shamt = this.regs.addRegister('shamt');
 
-  private isAluOperation = new Register32(0);
-  private isStore = new Register32(0);
-  private isLoad = new Register32(0);
-  private isJump = new Register32(0);
-  private isLUI = new Register32(0);
-  private isBranch = new Register32(0);
-  private isJAL = new Register32(0);
-  private imm32 = new Register32(0);
-  private pc = new Register32(0);
-  private pcPlus4 = new Register32(0);
+  private isAluOperation = this.regs.addRegister('isAluOperation');
+  private isStore = this.regs.addRegister('isStore');
+  private isLoad = this.regs.addRegister('isLoad');
+  private isJump = this.regs.addRegister('isJump');
+  private isLUI = this.regs.addRegister('isLUI');
+  private isBranch = this.regs.addRegister('isBranch');
+  private isJAL = this.regs.addRegister('isJAL');
+  private imm32 = this.regs.addRegister('imm32');
+  private pc = this.regs.addRegister('pc');
+  private pcPlus4 = this.regs.addRegister('pcPlus4');
 
   private regFile: DecodeParams['regFile'];
 
@@ -98,48 +98,30 @@ export class Decode extends PipelineStage {
   }
 
   latchNext() {
-    this.instruction.latchNext();
-    this.opcode.latchNext();
-    this.rd.latchNext();
-    this.funct3.latchNext();
-    this.rs1.latchNext();
-    this.rs2.latchNext();
-    this.funct7.latchNext();
-    this.shamt.latchNext();
-
-    this.isAluOperation.latchNext();
-    this.isStore.latchNext();
-    this.isLoad.latchNext();
-    this.isLUI.latchNext();
-    this.isJump.latchNext();
-    this.isJAL.latchNext();
-    this.isBranch.latchNext();
-    this.imm32.latchNext();
-    this.pc.latchNext();
-    this.pcPlus4.latchNext();
+    this.regs.latchNext();
   }
 
   getDecodedValuesOut() {
-    return {
-      instruction: this.instruction.value,
-      opcode: this.opcode.value,
-      rd: this.rd.value,
-      funct3: this.funct3.value,
-      rs1: this.rs1.value,
-      rs2: this.rs2.value,
-      funct7: this.funct7.value,
-      shamt: this.shamt.value,
-
-      isAluOperation: this.isAluOperation.value,
-      isStore: this.isStore.value,
-      isLoad: this.isLoad.value,
-      isLUI: this.isLUI.value,
-      isJump: this.isJump.value,
-      isJAL: this.isJAL.value,
-      isBranch: this.isBranch.value,
-      imm32: this.imm32.value,
-      pc: this.pc.value,
-      pcPlus4: this.pcPlus4.value,
-    }
+    return this.regs.getValuesObject<
+      | 'instruction'
+      | 'opcode'
+      | 'rd'
+      | 'funct3'
+      | 'rs1'
+      | 'rs2'
+      | 'funct7'
+      | 'shamt'
+      | 'isAluOperation'
+      | 'isStore'
+      | 'isLoad'
+      | 'isJump'
+      | 'isLUI'
+      | 'isBranch'
+      | 'isJAL'
+      | 'csr'
+      | 'imm32'
+      | 'pc'
+      | 'pcPlus4'
+    >();
   }
 }
