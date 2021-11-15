@@ -2,11 +2,8 @@
 #define RAM_START 0x20000000
 
 int main() {
-  int a = 10;
-
-  while (a) {
-    a--;
-  }
+  int result;
+  asm("rdcycle %0" : "=r"(result));
 
   // Loop forever
   while (1) {}

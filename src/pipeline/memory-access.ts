@@ -1,3 +1,4 @@
+import { CSRInstructionType, CSRInterface } from "../csr";
 import { SystemInterface } from "../system-interface";
 import { signExtend32, twos } from "../util";
 import { Execute } from "./execute";
@@ -7,6 +8,7 @@ export interface MemoryAccessParams {
   shouldStall: () => boolean;
   getExecutionValuesIn: () => ReturnType<Execute['getExecutionValuesOut']>;
   bus: SystemInterface;
+  csr: CSRInterface;
 }
 
 export enum MemoryAccessWidth {
@@ -19,6 +21,7 @@ export class MemoryAccess extends PipelineStage {
   private shouldStall: MemoryAccessParams['shouldStall'];
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
+  private csr: MemoryAccessParams['csr'];
 
   private writebackValue = this.regs.addRegister('writebackValue');
   private rd = this.regs.addRegister('rd');
@@ -29,6 +32,7 @@ export class MemoryAccess extends PipelineStage {
     this.shouldStall = params.shouldStall;
     this.getExecutionValuesIn = params.getExecutionValuesIn;
     this.bus = params.bus;
+    this.csr = params.csr;
   }
 
   compute() {
@@ -45,7 +49,12 @@ export class MemoryAccess extends PipelineStage {
         isLoad,
         isLUI,
         isJump,
-        pcPlus4
+        pcPlus4,
+        isSystem,
+        csrShouldRead,
+        csrShouldWrite,
+        csrAddress,
+        csrSource
       } = this.getExecutionValuesIn();
 
       this.writebackValue.value = aluResult;
@@ -54,7 +63,7 @@ export class MemoryAccess extends PipelineStage {
       // TODO: This should be done in the ALU
       const addr = twos(imm32 + rs1);
 
-      this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump;
+      this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump | isSystem;
 
       if (isStore) {
         switch (funct3) {
@@ -105,6 +114,35 @@ export class MemoryAccess extends PipelineStage {
         this.writebackValue.value = imm32;
       } else if (isJump) {
         this.writebackValue.value = pcPlus4;
+      } else if (isSystem) {
+        const csrValue = csrShouldRead
+          ? this.csr.read(csrAddress)
+          : 0;
+
+        this.writebackValue.value = csrValue;
+
+        switch (funct3 & 0b11) {
+          case CSRInstructionType.RW: {
+            if (csrShouldWrite) {
+              this.csr.write(csrAddress, csrSource);
+            }
+            break;
+          }
+
+          case CSRInstructionType.RS: {
+            if (csrShouldWrite) {
+              this.csr.write(csrAddress, csrValue | csrSource);
+            }
+            break;
+          }
+
+          case CSRInstructionType.RC: {
+            if (csrShouldWrite) {
+              this.csr.write(csrAddress, twos(csrValue & ~csrSource));
+            }
+            break;
+          }
+        }
       }
     }
   }

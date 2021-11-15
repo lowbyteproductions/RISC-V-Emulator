@@ -46,6 +46,11 @@ export class Execute extends PipelineStage {
   private branchAddress = this.regs.addRegister('branchAddress');
   private branchValid = this.regs.addRegister('branchValid');
   private pcPlus4 = this.regs.addRegister('pcPlus4');
+  private isSystem = this.regs.addRegister('isSystem');
+  private csrAddress = this.regs.addRegister('csrAddress');
+  private csrSource = this.regs.addRegister('csrSource');
+  private csrShouldWrite = this.regs.addRegister('csrShouldWrite');
+  private csrShouldRead = this.regs.addRegister('csrShouldRead');
 
   constructor(params: ExecuteParams) {
     super();
@@ -65,11 +70,16 @@ export class Execute extends PipelineStage {
       this.isLoad.value = decoded.isLoad;
       this.isLUI.value = decoded.isLUI;
       this.isJump.value = decoded.isJump;
+      this.isSystem.value = decoded.isSystem;
       this.imm32.value = decoded.imm32;
       this.funct3.value = decoded.funct3;
       this.rs1.value = decoded.rs1;
       this.rs2.value = decoded.rs2;
       this.pcPlus4.value = decoded.pcPlus4;
+      this.csrAddress.value = decoded.csrAddress;
+      this.csrShouldRead.value = decoded.csrShouldRead;
+      this.csrShouldWrite.value = decoded.csrShouldWrite;
+      this.csrSource.value = decoded.csrSource;
 
       const isRegisterOp = Boolean((decoded.opcode >> 5) & 1);
       const isAlternate = Boolean((decoded.instruction >> 30) & 1);
@@ -165,6 +175,11 @@ export class Execute extends PipelineStage {
       | 'branchAddress'
       | 'branchValid'
       | 'pcPlus4'
+      | 'isSystem'
+      | 'csrAddress'
+      | 'csrSource'
+      | 'csrShouldWrite'
+      | 'csrShouldRead'
     >();
   }
 }

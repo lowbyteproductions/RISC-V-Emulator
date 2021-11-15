@@ -11,6 +11,7 @@ import { Execute } from './pipeline/execute';
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { CSRInterface } from './csr';
 
 enum State {
   InstructionFetch,
@@ -28,6 +29,7 @@ class RV32ISystem {
   regFile = Array.from({ length: 32 }, () => new Register32());
 
   bus = new SystemInterface(this.rom, this.ram);
+  csr = new CSRInterface();
 
   private breakpoints = new Set<number>();
 
@@ -52,7 +54,8 @@ class RV32ISystem {
   MEM = new MemoryAccess({
     shouldStall: () => this.state !== State.MemoryAccess,
     getExecutionValuesIn: () => this.EX.getExecutionValuesOut(),
-    bus: this.bus
+    bus: this.bus,
+    csr: this.csr,
   });
 
   WB = new WriteBack({
@@ -67,6 +70,7 @@ class RV32ISystem {
     this.EX.compute();
     this.MEM.compute();
     this.WB.compute();
+    this.csr.compute();
   }
 
   latchNext() {
@@ -76,6 +80,7 @@ class RV32ISystem {
     this.MEM.latchNext();
     this.WB.latchNext();
     this.regFile.forEach(r => r.latchNext());
+    this.csr.latchNext();
   }
 
   addBreakpoint(address: number) {
@@ -102,7 +107,11 @@ class RV32ISystem {
       case State.Decode: { this.state = State.Execute; break; }
       case State.Execute: { this.state = State.MemoryAccess; break; }
       case State.MemoryAccess: { this.state = State.WriteBack; break; }
-      case State.WriteBack: { this.state = State.InstructionFetch; break; }
+      case State.WriteBack: {
+        this.state = State.InstructionFetch;
+        this.csr.instret.value += 1n;
+        break;
+      }
     }
   }
 }
@@ -115,7 +124,7 @@ const main = async () => {
 
   rv.rom.load(program);
 
-  rv.addBreakpoint(0x100000e4);
+  rv.addBreakpoint(0x1000001c);
 
   while (true) {
     rv.cycle();

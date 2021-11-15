@@ -26,9 +26,14 @@ export class Decode extends PipelineStage {
   private isLUI = this.regs.addRegister('isLUI');
   private isBranch = this.regs.addRegister('isBranch');
   private isJAL = this.regs.addRegister('isJAL');
+  private isSystem = this.regs.addRegister('isSystem');
   private imm32 = this.regs.addRegister('imm32');
   private pc = this.regs.addRegister('pc');
   private pcPlus4 = this.regs.addRegister('pcPlus4');
+  private csrAddress = this.regs.addRegister('csrAddress');
+  private csrSource = this.regs.addRegister('csrSource');
+  private csrShouldWrite = this.regs.addRegister('csrShouldWrite');
+  private csrShouldRead = this.regs.addRegister('csrShouldRead');
 
   private regFile: DecodeParams['regFile'];
 
@@ -67,11 +72,21 @@ export class Decode extends PipelineStage {
       this.isLUI.value    = boolToInt(this.opcode.nextValue === 0b0110111);
       this.isBranch.value = boolToInt(this.opcode.nextValue === 0b1100011);
       this.isJAL.value    = boolToInt(this.opcode.nextValue === 0b1101111);
+      this.isSystem.value = boolToInt(this.opcode.nextValue === 0b1110011);
       const isJALR        = boolToInt(this.opcode.nextValue === 0b1100111);
 
       this.isJump.value = this.isJAL.nextValue | isJALR;
 
       const i = this.instruction.nextValue;
+
+      this.csrAddress.value = i >>> 20;
+      const zImm = rs1Address;
+      const isIntegerCsr = (this.funct3.nextValue & 0b100) === 0b100;
+      const isCsrrw = (this.funct3.nextValue & 0b11) === 0b01;
+
+      this.csrSource.value = isIntegerCsr ? zImm : this.rs1.nextValue;
+      this.csrShouldWrite.value = boolToInt(isCsrrw || (!isCsrrw && rs1Address !== 0));
+      this.csrShouldRead.value = boolToInt(!isCsrrw || (isCsrrw && this.rd.nextValue !== 0));
 
       const sImm = signExtend32(12, (((i >> 25) & 0x7f) << 5) | ((i >> 7) & 0x1f));
       const iImm = signExtend32(12, i >>> 20);
@@ -91,7 +106,9 @@ export class Decode extends PipelineStage {
         this.imm32.value = bImm;
       } else if (isJALR) {
         this.imm32.value = slice32(11, 1, iImm, 11);
-      }  else {
+      } else if (this.isSystem.nextValue) {
+        // no op
+      } else {
         throw new Error('Not implemented');
       }
     }
@@ -122,6 +139,11 @@ export class Decode extends PipelineStage {
       | 'imm32'
       | 'pc'
       | 'pcPlus4'
+      | 'isSystem'
+      | 'csrAddress'
+      | 'csrSource'
+      | 'csrShouldWrite'
+      | 'csrShouldRead'
     >();
   }
 }

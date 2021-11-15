@@ -7,7 +7,7 @@ OBJCOPY_FLAGS=-O binary -j .text
 LINKER_FLAGS=-T
 LINKER_SCRIPT=link.ld
 BOOTLOADER=bootloader.S
-MATH_LIB=math.S
+MATH_LIB=#math.S
 PROGRAM=main.c
 
 CODE_FILES=$(BOOTLOADER) $(MATH_LIB) $(PROGRAM)
