@@ -15,8 +15,8 @@ export class Register64 {
   }
 
   set value(v: bigint) {
-    this._nextValue = v;
-  }
+    this._nextValue = v & 0xffffffffffffffffn;
+  }n
 
   getValueLow() {
     return Number(this._value & 0xffffffffn);
