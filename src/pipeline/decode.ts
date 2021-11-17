@@ -27,6 +27,7 @@ export class Decode extends PipelineStage {
   private isBranch = this.regs.addRegister('isBranch');
   private isJAL = this.regs.addRegister('isJAL');
   private isSystem = this.regs.addRegister('isSystem');
+  private isAUIPC = this.regs.addRegister('isAUIPC');
   private imm32 = this.regs.addRegister('imm32');
   private pc = this.regs.addRegister('pc');
   private pcPlus4 = this.regs.addRegister('pcPlus4');
@@ -73,6 +74,7 @@ export class Decode extends PipelineStage {
       this.isBranch.value = boolToInt(this.opcode.nextValue === 0b1100011);
       this.isJAL.value    = boolToInt(this.opcode.nextValue === 0b1101111);
       this.isSystem.value = boolToInt(this.opcode.nextValue === 0b1110011);
+      this.isAUIPC.value  = boolToInt(this.opcode.nextValue === 0b0010111);
       const isJALR        = boolToInt(this.opcode.nextValue === 0b1100111);
 
       this.isJump.value = this.isJAL.nextValue | isJALR;
@@ -98,7 +100,7 @@ export class Decode extends PipelineStage {
         this.imm32.value = sImm;
       } else if (this.isAluOperation.nextValue || this.isLoad.nextValue) {
         this.imm32.value = iImm;
-      } else if (this.isLUI.nextValue) {
+      } else if (this.isLUI.nextValue | this.isAUIPC.nextValue) {
         this.imm32.value = uImm;
       } else if (this.isJAL.nextValue) {
         this.imm32.value = jImm;
@@ -144,6 +146,7 @@ export class Decode extends PipelineStage {
       | 'csrSource'
       | 'csrShouldWrite'
       | 'csrShouldRead'
+      | 'isAUIPC'
     >();
   }
 }

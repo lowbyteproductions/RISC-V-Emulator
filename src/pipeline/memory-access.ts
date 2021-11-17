@@ -48,13 +48,15 @@ export class MemoryAccess extends PipelineStage {
         funct3,
         isLoad,
         isLUI,
+        isAUIPC,
         isJump,
         pcPlus4,
         isSystem,
         csrShouldRead,
         csrShouldWrite,
         csrAddress,
-        csrSource
+        csrSource,
+        branchAddress
       } = this.getExecutionValuesIn();
 
       this.writebackValue.value = aluResult;
@@ -63,7 +65,7 @@ export class MemoryAccess extends PipelineStage {
       // TODO: This should be done in the ALU
       const addr = twos(imm32 + rs1);
 
-      this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump | isSystem;
+      this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump | isSystem | isAUIPC;
 
       if (isStore) {
         switch (funct3) {
@@ -143,6 +145,8 @@ export class MemoryAccess extends PipelineStage {
             break;
           }
         }
+      } else if (isAUIPC) {
+        this.writebackValue.value = branchAddress;
       }
     }
   }

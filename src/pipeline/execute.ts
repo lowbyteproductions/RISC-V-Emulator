@@ -37,6 +37,7 @@ export class Execute extends PipelineStage {
   private isStore = this.regs.addRegister('isStore');
   private isLoad = this.regs.addRegister('isLoad');
   private isLUI = this.regs.addRegister('isLUI');
+  private isAUIPC = this.regs.addRegister('isAUIPC');
   private isJump = this.regs.addRegister('isJump');
   private isAluOperation = this.regs.addRegister('isAluOperation');
   private imm32 = this.regs.addRegister('imm32');
@@ -65,6 +66,7 @@ export class Execute extends PipelineStage {
       const {imm32} = decoded;
 
       this.rd.value = decoded.rd;
+      this.isAUIPC.value = decoded.isAUIPC;
       this.isAluOperation.value = decoded.isAluOperation;
       this.isStore.value = decoded.isStore;
       this.isLoad.value = decoded.isLoad;
@@ -84,7 +86,7 @@ export class Execute extends PipelineStage {
       const isRegisterOp = Boolean((decoded.opcode >> 5) & 1);
       const isAlternate = Boolean((decoded.instruction >> 30) & 1);
 
-      const branchBase = (decoded.isJAL | decoded.isBranch) ? decoded.pc : decoded.rs1;
+      const branchBase = (decoded.isJAL | decoded.isBranch | decoded.isAUIPC) ? decoded.pc : decoded.rs1;
       this.branchAddress.value = branchBase + decoded.imm32;
 
       let addResult = 0;
@@ -166,6 +168,7 @@ export class Execute extends PipelineStage {
       | 'isStore'
       | 'isLoad'
       | 'isLUI'
+      | 'isAUIPC'
       | 'isJump'
       | 'isAluOperation'
       | 'imm32'
