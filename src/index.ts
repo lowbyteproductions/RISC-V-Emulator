@@ -8,10 +8,12 @@ import { ROMDevice } from './system-interface/rom';
 import { Decode } from './pipeline/decode';
 import { Register32 } from './register32';
 import { Execute } from './pipeline/execute';
+import { CSRInterface } from './csr';
+
+import {debugObj} from './debug';
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CSRInterface } from './csr';
 
 enum State {
   InstructionFetch,
@@ -97,6 +99,7 @@ class RV32ISystem {
 
     if (this.state === State.InstructionFetch) {
       const pc = this.IF.getInstructionValuesOut().pc;
+      debugObj.pc = pc;
       if (this.breakpoints.has(pc)) {
         debugger;
       }
@@ -124,7 +127,9 @@ const main = async () => {
 
   rv.rom.load(program);
 
-  rv.addBreakpoint(0x1000001c);
+  // rv.addBreakpoint(0x10000074); // Beginning of main
+  // rv.addBreakpoint(0x1000002c);
+  rv.addBreakpoint(0x10000078);
 
   while (true) {
     rv.cycle();

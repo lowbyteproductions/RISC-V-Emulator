@@ -46,6 +46,7 @@ export class Execute extends PipelineStage {
   private rs2 = this.regs.addRegister('rs2');
   private branchAddress = this.regs.addRegister('branchAddress');
   private branchValid = this.regs.addRegister('branchValid');
+  private pc = this.regs.addRegister('pc');
   private pcPlus4 = this.regs.addRegister('pcPlus4');
   private isSystem = this.regs.addRegister('isSystem');
   private csrAddress = this.regs.addRegister('csrAddress');
@@ -77,6 +78,7 @@ export class Execute extends PipelineStage {
       this.funct3.value = decoded.funct3;
       this.rs1.value = decoded.rs1;
       this.rs2.value = decoded.rs2;
+      this.pc.value = decoded.pc;
       this.pcPlus4.value = decoded.pcPlus4;
       this.csrAddress.value = decoded.csrAddress;
       this.csrShouldRead.value = decoded.csrShouldRead;
@@ -177,6 +179,7 @@ export class Execute extends PipelineStage {
       | 'rs2'
       | 'branchAddress'
       | 'branchValid'
+      | 'pc'
       | 'pcPlus4'
       | 'isSystem'
       | 'csrAddress'

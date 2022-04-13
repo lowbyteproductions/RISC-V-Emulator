@@ -23,6 +23,7 @@ export class MemoryAccess extends PipelineStage {
   private bus: MemoryAccessParams['bus'];
   private csr: MemoryAccessParams['csr'];
 
+  private pc = this.regs.addRegister('pc');
   private writebackValue = this.regs.addRegister('writebackValue');
   private rd = this.regs.addRegister('rd');
   private writebackValueValid = this.regs.addRegister('writebackValueValid');
@@ -50,6 +51,7 @@ export class MemoryAccess extends PipelineStage {
         isLUI,
         isAUIPC,
         isJump,
+        pc,
         pcPlus4,
         isSystem,
         csrShouldRead,
@@ -61,6 +63,7 @@ export class MemoryAccess extends PipelineStage {
 
       this.writebackValue.value = aluResult;
       this.rd.value = rd;
+      this.pc.value = pc;
 
       // TODO: This should be done in the ALU
       const addr = twos(imm32 + rs1);
@@ -160,6 +163,7 @@ export class MemoryAccess extends PipelineStage {
       | 'writebackValue'
       | 'rd'
       | 'writebackValueValid'
+      | 'pc'
     >();
   }
 }
