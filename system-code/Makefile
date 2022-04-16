@@ -1,30 +1,48 @@
-CC=riscv32-unknown-elf-gcc
-OBJCOPY=riscv32-unknown-elf-objcopy
+################ Commands ###############
+CC			= riscv32-unknown-elf-gcc
+OBJCOPY	= riscv32-unknown-elf-objcopy
+MKDIR		= mkdir -p
 
-CFLAGS=-nostdlib
-OBJCOPY_FLAGS=-O binary -j .text
+############## Directories ##############
+BUILD_DIR	= build
+OBJ_DIR		= obj
+SRC_DIR		= src
+INC_DIR		= inc
 
-LINKER_FLAGS=-T
+################# Flags #################
+INCLUDE				=-I ./$(INC_DIR)
+CFLAGS				=-ffreestanding -nostdlib
+OBJCOPY_FLAGS	=-O binary
+LINKER_FLAGS	=-T
+
+################# Files #################
+C_SRC_FILES 	=  $(wildcard $(SRC_DIR)/*.c)
+ASM_SRC_FILES =  $(wildcard $(SRC_DIR)/*.S)
+O_FILES 			:= $(patsubst %.c, %.o, $(C_SRC_FILES)) $(patsubst %.S, %.o, $(ASM_SRC_FILES))
+O_FILES 			:= $(patsubst src/%, build/%, $(O_FILES))
+
 LINKER_SCRIPT=link.ld
-BOOTLOADER=bootloader.S
-MATH_LIB=#math.S
-PROGRAM=main.c
 
-CODE_FILES=$(BOOTLOADER) $(MATH_LIB) $(PROGRAM)
+# all:
+# 	echo $(O_FILES)
+all: $(BUILD_DIR)/main.bin
 
-all: main.bin
+$(BUILD_DIR)/main.bin : $(BUILD_DIR)/main.elf
+	$(OBJCOPY) $(OBJCOPY_FLAGS) -j .text $? $(BUILD_DIR)/main.code
+	$(OBJCOPY) $(OBJCOPY_FLAGS) -j .data $? $(BUILD_DIR)/main.data
+	cat $(BUILD_DIR)/main.code $(BUILD_DIR)/main.data > $(BUILD_DIR)/main.bin
 
-main.o: $(LINKER_SCRIPT) $(CODE_FILES)
-ifeq (${NO_LINKER},true)
-	$(CC) $(PROGRAM) -o $@
-else
-	$(CC) $(LINKER_FLAGS) $(LINKER_SCRIPT) $(CFLAGS) $(CODE_FILES) -o $@
-endif
+$(BUILD_DIR)/main.elf : $(O_FILES)
+	$(CC) $(LINKER_FLAGS) $(LINKER_SCRIPT) $(CFLAGS) $^ -o $@
 
-main.bin: main.o
-	$(OBJCOPY) $(OBJCOPY_FLAGS) $? $@
+$(BUILD_DIR)/%.o : $(SRC_DIR)/%.c
+	$(MKDIR) $(dir $@)
+	$(CC) $(INCLUDE) -c $(CCFLAGS) $< -o $@
 
-.PHONY: clean
+$(BUILD_DIR)/%.o : $(SRC_DIR)/%.S
+	$(MKDIR) $(dir $@)
+	$(CC) $(INCLUDE) -c $(CCFLAGS) $< -o $@
+
+.PHONY: clean all
 clean:
-	rm -f *.o *.bin
-
+	rm -rf build/*

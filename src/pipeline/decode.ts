@@ -1,5 +1,5 @@
 import { Register32 } from "../register32";
-import { bit, boolToInt, signExtend32, slice32 } from "../util";
+import { bit, boolToInt, signExtend32, slice32, toHexString } from "../util";
 import { InstructionFetch } from "./fetch";
 import { PipelineStage } from "./pipeline-stage";
 
@@ -111,6 +111,7 @@ export class Decode extends PipelineStage {
       } else if (this.isSystem.nextValue) {
         // no op
       } else {
+        console.log(`pc=0x${toHexString(this.pc.nextValue), 8}`);
         throw new Error('Not implemented');
       }
     }

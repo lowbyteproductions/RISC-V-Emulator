@@ -3,6 +3,8 @@ import { toHexString } from './../util';
 import { RAMDevice } from './ram';
 import { ROMDevice } from "./rom";
 
+import { debugObj } from '../debug';
+
 export interface MMIODevice {
   read(address: number, width: MemoryAccessWidth): number;
   write(address: number, value: number, width: MemoryAccessWidth): void;
@@ -33,6 +35,7 @@ export class SystemInterface implements MMIODevice {
       return this.ram.read(address & 0x0fffffff, width);
     }
 
+    throw new Error(`[pc=0x${toHexString(debugObj.pc, 8)}] Read from out of bounds: 0x${toHexString(address, 8)}`);
     return 0;
   }
 
@@ -40,5 +43,7 @@ export class SystemInterface implements MMIODevice {
     if ((address & MemoryMap.RAMStart) === MemoryMap.RAMStart) {
       return this.ram.write(address & 0x0fffffff, value, width);
     }
+
+    throw new Error(`[pc=0x${toHexString(debugObj.pc, 8)}] Write to out of bounds: 0x${toHexString(address, 8)}`);
   }
 }
