@@ -55,7 +55,7 @@ export class CSRInterface {
   // Various specific flags and settings, including global interrupt enable, and a lot of noop bits (for us)
   mstatus   = 0;
   // Encodes the base trap vector address + mode (table or single handler)
-  mtvec     = 0x10000001;
+  mtvec     = 0x10000004 | 1;
   // Interrupt enable / disable
   mie       = 0x00000888;
   // Interrupt-pending

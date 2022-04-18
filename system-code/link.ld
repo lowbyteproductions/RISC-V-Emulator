@@ -1,7 +1,7 @@
 /* Based on https://github.com/xenowing/xenowing/blob/master/sw/program/link.ld */
 
 OUTPUT_ARCH("riscv")
-ENTRY(_start)
+ENTRY(_reset)
 
 PROVIDE(_max_program_size = 1m);
 
@@ -24,6 +24,9 @@ SECTIONS
 {
     .text _stext : ALIGN(4)
     {
+        /* Reset vector, pointing to the _start */
+        *(.reset_vector .reset_vector.*);
+
         /* Vector Table */
         _svector = .;
         *(.vectortable .vectortable.*);
