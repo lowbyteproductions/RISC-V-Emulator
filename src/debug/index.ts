@@ -5,10 +5,12 @@ type Logger = Record<LogLevel, LogFn>;
 export type DebugObj = {
   level: LogLevel;
   pc: number;
+  showDisassembly: boolean;
 }
 export const debugObj: DebugObj = {
   level: "debug",
   pc: 0,
+  showDisassembly: false
 };
 
 export const setLogLevel = (level: LogLevel) => {

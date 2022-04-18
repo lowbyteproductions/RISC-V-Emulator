@@ -14,6 +14,7 @@ import {debugObj} from './debug';
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { ELFDebugInfo, getELFDebugInfo } from './debug/elf';
 
 enum State {
   InstructionFetch,
@@ -34,6 +35,8 @@ class RV32ISystem {
   csr = new CSRInterface();
 
   private breakpoints = new Set<number>();
+  private debugInfo: ELFDebugInfo;
+  private stepMode = false;
 
   IF = new InstructionFetch({
     shouldStall: () => this.state !== State.InstructionFetch,
@@ -89,8 +92,27 @@ class RV32ISystem {
     this.breakpoints.add(address);
   }
 
+  addBreakpointByName(name: string, offset = 0) {
+    if (!this.debugInfo) {
+      throw new Error('No ELF debugging info loaded');
+    }
+    if (!(name in this.debugInfo.addressByFunctionName)) {
+      throw new Error(`Cannot find function '${name}' in ELF debugging info`);
+    }
+
+    this.breakpoints.add(this.debugInfo.addressByFunctionName[name] + offset);
+  }
+
   removeBreakpoint(address: number) {
     this.breakpoints.delete(address);
+  }
+
+  loadDebugInfo(debugInfo: ELFDebugInfo) {
+    this.debugInfo = debugInfo;
+  }
+
+  setStepMode(enabled: boolean) {
+    this.stepMode = enabled;
   }
 
   cycle() {
@@ -100,7 +122,29 @@ class RV32ISystem {
     if (this.state === State.InstructionFetch) {
       const pc = this.IF.getInstructionValuesOut().pc;
       debugObj.pc = pc;
-      if (this.breakpoints.has(pc)) {
+
+        let shouldBreak = false;
+
+        if (this.stepMode || this.breakpoints.has(pc)) {
+          this.stepMode = true;
+          shouldBreak = true;
+          debugObj.showDisassembly = true;
+        }
+
+        if (debugObj.showDisassembly) {
+          if (this.debugInfo && pc in this.debugInfo.assemblyByAddress) {
+            if (pc in this.debugInfo.functionNameByAddress) {
+              console.log(`${this.debugInfo.functionNameByAddress[pc]}:`);
+            }
+
+            const ins = this.debugInfo.assemblyByAddress[pc];
+            console.log(`${toHexString(pc, 8)}: ${ins.assembly}`);
+          } else {
+            console.log(`${toHexString(pc, 8)}: <info unavailable>`);
+          }
+        }
+
+        if (shouldBreak) {
         debugger;
       }
     }
@@ -122,14 +166,15 @@ class RV32ISystem {
 const main = async () => {
   const rv = new RV32ISystem();
 
-  const file = await fs.readFile(path.join(__dirname, '..', 'system-code', 'main.bin'));
+  const file = await fs.readFile(path.join(__dirname, '..', 'system-code', 'build', 'main.bin'));
+  const debugInfo = await getELFDebugInfo(path.join(__dirname, '..', 'system-code', 'build', 'main.elf'));
   const program = new Uint32Array(file.buffer);
 
+  debugObj.level = 'error';
+  rv.loadDebugInfo(debugInfo);
   rv.rom.load(program);
 
-  // rv.addBreakpoint(0x10000074); // Beginning of main
-  // rv.addBreakpoint(0x1000002c);
-  rv.addBreakpoint(0x10000078);
+  rv.addBreakpointByName('_start');
 
   while (true) {
     rv.cycle();
