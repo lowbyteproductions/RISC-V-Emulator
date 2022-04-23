@@ -8,6 +8,7 @@ _reset:
 // Missing quite a bit here
 .section .text
 _start:
+  lw   a4, 1(sp)
   // Set stack pointer to 0x203ffffc
   lui  sp, 0x20400
   addi sp, sp, -4

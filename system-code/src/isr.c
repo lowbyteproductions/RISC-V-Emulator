@@ -3,6 +3,10 @@
 
 ISR(__defaultISR) {}
 
+ISR(__ISRExceptionCrash) {
+  while (1) {}
+}
+
 VECTOR_TABLE(vectorTable) {
   &__defaultISR, /* UserSoftwareInterrupt */
   &__defaultISR, /* SupervisorSoftwareInterrupt */
@@ -16,20 +20,20 @@ VECTOR_TABLE(vectorTable) {
   &__defaultISR, /* SupervisorExternalInterrupt */
   &__defaultISR, /* Reserved2 */
   &__defaultISR, /* MachineExternalInterrupt */
-  &__defaultISR, /* InstructionAddressMisaligned */
-  &__defaultISR, /* InstructionAccessFault */
-  &__defaultISR, /* IllegalInstruction */
+  &__ISRExceptionCrash, /* InstructionAddressMisaligned */
+  &__ISRExceptionCrash, /* InstructionAccessFault */
+  &__ISRExceptionCrash, /* IllegalInstruction */
   &__defaultISR, /* Breakpoint */
-  &__defaultISR, /* LoadAddressMisaligned */
-  &__defaultISR, /* LoadAccessFault */
-  &__defaultISR, /* StoreAMOAddressMisaligned */
-  &__defaultISR, /* StoreAMOAccessFault */
+  &__ISRExceptionCrash, /* LoadAddressMisaligned */
+  &__ISRExceptionCrash, /* LoadAccessFault */
+  &__ISRExceptionCrash, /* StoreAMOAddressMisaligned */
+  &__ISRExceptionCrash, /* StoreAMOAccessFault */
   &__defaultISR, /* EnvironmentCallFromUMode */
   &__defaultISR, /* EnvironmentCallFromSMode */
   &__defaultISR, /* Reserved3 */
   &__defaultISR, /* EnvironmentCallFromMMode */
   &__defaultISR, /* InstructionPageFault */
-  &__defaultISR, /* LoadPageFault */
+  &__ISRExceptionCrash, /* LoadPageFault */
   &__defaultISR, /* Reserved4 */
-  &__defaultISR, /* StoreAMOPageFault */
+  &__ISRExceptionCrash, /* StoreAMOPageFault */
 };

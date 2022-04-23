@@ -1,35 +1,45 @@
-# Episode 9: M-Mode & Privileged CSRs
-
-Machine level CSRs (and context switching back in to the swing!)
+# Episode 10: Exceptional Trap Handling
 
 *Goals*:
 
-- **Understand**  the M-Mode CSRs and how they relate to traps
-- **Understand**  what kind of code we need to write for the system in order to set everything up
-- **Start**       with the first exception: Unaligned memory access
+- **Build** the whole flow of the "Load address misaligned" trap
 
 ## Follow up business
 
-- Added `AUIPC` Instruction (git show 1454ca3)
-- Actually limit Register64 to 64-bit values
-- Pass `pc` through every stage (so that we can actually track which instruction caused a fault)
+- 0x10000000: j _start
+  - git show 509785f
+  - Even before the vector table, we need to ensure that the CPU knows where to find the code
+  - This instruction should always be the first thing!
 
-- Worked on the C code setup for the system
-  - Global variables can now be properly initialised at start up
-  - Involves linker script, boot files in asm and C
-  - A sketch of the vector table, which is integral to making traps work
+- Added some levelled-up debugging
+  - git show 012d363
+  - Disassembly now visible when stepping!
+  - Comes directly from the ELF via objdump
+  - Basically gained the ability to set breakpoints on functions for free
 
 ## Agenda
 
-- Look at the various M-Mode CSRs in the code and spec
-  - Information about the CPU capabilities, manufacturer, version, etc
-  - Various registers to hold data when interrupts or exceptions (traps) are taken
-  - Some memory mapped registers for timers
+- Can detect in the memory access stage
+- Stall (flush) the pipeline (set state to trap)
 
-- Take a look at how we're going to set up the vector table
-  - Memory map
-  - C code
+- Trap module reads pc, current instruction, cause
+  - Sets those CSRs (directly)
+  - Loads the jump address from the table
+  - Sets the pc (plus 4 in this case)
+  - Sets the state to fetch
 
-- Start implementing and testing a trap!
-  - Unaligned memory accesses
-  - The first run will likely not be optimal, but let's just start somewhere!
+- Implement the `mret` instruction
+  - Recognise the pattern in decode stage
+  - Signal to trap (transfers machine state to trap again)
+  - Trap places `mepc` back in `pc`, resets pipeline
+
+- In the handler
+  - Disable interrupts
+  - Save the context to the stack
+  - Read mtval (instruction)
+  - Determine what kind of read to do (16/32 bit)
+  - Make the two reads
+  - Determine which register to write to
+  - Switch statement with asm blocks writing to the specified register
+  - Enable interrupts
+  - Return from interrupt

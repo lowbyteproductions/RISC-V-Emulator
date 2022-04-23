@@ -15,8 +15,9 @@ import {debugObj} from './debug';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ELFDebugInfo, getELFDebugInfo } from './debug/elf';
+import { Trap } from './trap';
 
-enum State {
+enum PipelineState {
   InstructionFetch,
   Decode,
   Execute,
@@ -24,8 +25,14 @@ enum State {
   WriteBack
 }
 
+enum CPUState {
+  Pipeline,
+  Trap,
+}
+
 class RV32ISystem {
-  state = State.InstructionFetch;
+  pipelineState = PipelineState.InstructionFetch;
+  cpuState = CPUState.Pipeline;
 
   rom = new ROMDevice();
   ram = new RAMDevice();
@@ -33,38 +40,59 @@ class RV32ISystem {
 
   bus = new SystemInterface(this.rom, this.ram);
   csr = new CSRInterface();
+  trap = new Trap({
+    csr: this.csr,
+    bus: this.bus,
+    returnToPipelineMode: () => {
+      this.pipelineState = PipelineState.InstructionFetch;
+      this.cpuState = CPUState.Pipeline;
+    },
+    setPc: (pc: number) => {
+      // TODO: Fix this!
+      this.IF.pc.value = pc;
+      this.IF.pcPlus4.value = pc;
+    }
+  });
 
   private breakpoints = new Set<number>();
   private debugInfo: ELFDebugInfo;
   private stepMode = false;
 
   IF = new InstructionFetch({
-    shouldStall: () => this.state !== State.InstructionFetch,
+    shouldStall: () => this.pipelineState !== PipelineState.InstructionFetch,
     getBranchAddress: () => this.EX.getExecutionValuesOut().branchAddress,
     getBranchAddressValid: () => Boolean(this.EX.getExecutionValuesOut().branchValid),
     bus: this.bus,
   });
 
   DE: Decode = new Decode({
-    shouldStall: () => this.state !== State.Decode,
+    shouldStall: () => this.pipelineState !== PipelineState.Decode,
     getInstructionValuesIn: () => this.IF.getInstructionValuesOut(),
-    regFile: this.regFile
+    regFile: this.regFile,
+    trapReturn: () => {
+      this.trap.trapReturn();
+      this.cpuState = CPUState.Trap;
+    }
   });
 
   EX: Execute = new Execute({
-    shouldStall: () => this.state !== State.Execute,
+    shouldStall: () => this.pipelineState !== PipelineState.Execute,
     getDecodedValuesIn: () => this.DE.getDecodedValuesOut()
   });
 
   MEM = new MemoryAccess({
-    shouldStall: () => this.state !== State.MemoryAccess,
+    shouldStall: () => this.pipelineState !== PipelineState.MemoryAccess,
     getExecutionValuesIn: () => this.EX.getExecutionValuesOut(),
     bus: this.bus,
     csr: this.csr,
+    trap: (mepc, mcause, mtval) => {
+      this.trap.trapException(mepc, mcause, mtval);
+      this.cpuState = CPUState.Trap;
+    }
   });
 
   WB = new WriteBack({
-    shouldStall: () => this.state !== State.WriteBack,
+    shouldStall: () => this.pipelineState !== PipelineState.WriteBack,
     regFile: this.regFile,
     getMemoryAccessValuesIn: () => this.MEM.getMemoryAccessValuesOut()
   })
@@ -76,6 +104,7 @@ class RV32ISystem {
     this.MEM.compute();
     this.WB.compute();
     this.csr.compute();
+    this.trap.compute();
   }
 
   latchNext() {
@@ -86,6 +115,7 @@ class RV32ISystem {
     this.WB.latchNext();
     this.regFile.forEach(r => r.latchNext());
     this.csr.latchNext();
+    this.trap.latchNext();
   }
 
   addBreakpoint(address: number) {
@@ -115,49 +145,56 @@ class RV32ISystem {
     this.stepMode = enabled;
   }
 
-  cycle() {
-    this.compute();
-    this.latchNext();
+  onInstructionFetch() {
+    const pc = this.IF.getInstructionValuesOut().pc;
+    debugObj.pc = pc;
 
-    if (this.state === State.InstructionFetch) {
-      const pc = this.IF.getInstructionValuesOut().pc;
-      debugObj.pc = pc;
+    let shouldBreak = false;
 
-        let shouldBreak = false;
+    if (this.stepMode || this.breakpoints.has(pc)) {
+      this.stepMode = true;
+      shouldBreak = true;
+      debugObj.showDisassembly = true;
+    }
 
-        if (this.stepMode || this.breakpoints.has(pc)) {
-          this.stepMode = true;
-          shouldBreak = true;
-          debugObj.showDisassembly = true;
+    if (debugObj.showDisassembly) {
+      if (this.debugInfo && pc in this.debugInfo.assemblyByAddress) {
+        if (pc in this.debugInfo.functionNameByAddress) {
+          console.log(`${this.debugInfo.functionNameByAddress[pc]}:`);
         }
 
-        if (debugObj.showDisassembly) {
-          if (this.debugInfo && pc in this.debugInfo.assemblyByAddress) {
-            if (pc in this.debugInfo.functionNameByAddress) {
-              console.log(`${this.debugInfo.functionNameByAddress[pc]}:`);
-            }
-
-            const ins = this.debugInfo.assemblyByAddress[pc];
-            console.log(`${toHexString(pc, 8)}: ${ins.assembly}`);
-          } else {
-            console.log(`${toHexString(pc, 8)}: <info unavailable>`);
-          }
-        }
-
-        if (shouldBreak) {
-        debugger;
+        const ins = this.debugInfo.assemblyByAddress[pc];
+        console.log(`${toHexString(pc, 8)}: ${ins.assembly}`);
+      } else {
+        console.log(`${toHexString(pc, 8)}: <info unavailable>`);
       }
     }
 
-    switch (this.state) {
-      case State.InstructionFetch: { this.state = State.Decode; break; }
-      case State.Decode: { this.state = State.Execute; break; }
-      case State.Execute: { this.state = State.MemoryAccess; break; }
-      case State.MemoryAccess: { this.state = State.WriteBack; break; }
-      case State.WriteBack: {
-        this.state = State.InstructionFetch;
-        this.csr.instret.value += 1n;
-        break;
+    if (shouldBreak) {
+      debugger;
+    }
+  }
+
+  cycle() {
+    const currentState = this.cpuState;
+    this.compute();
+    this.latchNext();
+
+    if (currentState === CPUState.Pipeline) {
+      if (this.pipelineState === PipelineState.InstructionFetch) {
+        this.onInstructionFetch();
+      }
+
+      switch (this.pipelineState) {
+        case PipelineState.InstructionFetch: { this.pipelineState = PipelineState.Decode; break; }
+        case PipelineState.Decode: { this.pipelineState = PipelineState.Execute; break; }
+        case PipelineState.Execute: { this.pipelineState = PipelineState.MemoryAccess; break; }
+        case PipelineState.MemoryAccess: { this.pipelineState = PipelineState.WriteBack; break; }
+        case PipelineState.WriteBack: {
+          this.pipelineState = PipelineState.InstructionFetch;
+          this.csr.instret.value += 1n;
+          break;
+        }
       }
     }
   }

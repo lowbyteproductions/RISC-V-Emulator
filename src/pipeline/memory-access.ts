@@ -1,5 +1,6 @@
 import { CSRInstructionType, CSRInterface } from "../csr";
 import { SystemInterface } from "../system-interface";
+import { MCause } from "../trap";
 import { signExtend32, twos } from "../util";
 import { Execute } from "./execute";
 import { PipelineStage } from "./pipeline-stage";
@@ -7,6 +8,7 @@ import { PipelineStage } from "./pipeline-stage";
 export interface MemoryAccessParams {
   shouldStall: () => boolean;
   getExecutionValuesIn: () => ReturnType<Execute['getExecutionValuesOut']>;
+  trap: (mepc: number, mcause: number, mtval: number) => void;
   bus: SystemInterface;
   csr: CSRInterface;
 }
@@ -22,6 +24,7 @@ export class MemoryAccess extends PipelineStage {
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
   private csr: MemoryAccessParams['csr'];
+  private trap: MemoryAccessParams['trap'];
 
   private pc = this.regs.addRegister('pc');
   private writebackValue = this.regs.addRegister('writebackValue');
@@ -34,6 +37,7 @@ export class MemoryAccess extends PipelineStage {
     this.getExecutionValuesIn = params.getExecutionValuesIn;
     this.bus = params.bus;
     this.csr = params.csr;
+    this.trap = params.trap;
   }
 
   compute() {
@@ -53,6 +57,7 @@ export class MemoryAccess extends PipelineStage {
         isJump,
         pc,
         pcPlus4,
+        instruction,
         isSystem,
         csrShouldRead,
         csrShouldWrite,
@@ -70,8 +75,14 @@ export class MemoryAccess extends PipelineStage {
 
       this.writebackValueValid.value = isLoad | isAluOperation | isLUI | isJump | isSystem | isAUIPC;
 
+      const accessWidth = funct3 & 0b011;
+      const isUnaligned = (
+           ((accessWidth === MemoryAccessWidth.Word)     && (addr & 0b11))
+        || ((accessWidth === MemoryAccessWidth.HalfWord) && (addr & 0b01))
+      );
+
       if (isStore) {
-        switch (funct3) {
+        switch (accessWidth) {
           case MemoryAccessWidth.Byte: {
             this.bus.write(addr, rs2 & 0xff, MemoryAccessWidth.Byte);
             break;
@@ -88,10 +99,15 @@ export class MemoryAccess extends PipelineStage {
           }
         }
       } else if (isLoad) {
+        if (isUnaligned) {
+          this.trap(pcPlus4, MCause.LoadAddressMisaligned, instruction);
+          return;
+        }
+
         const shouldSignExtend = (funct3 & 0b100) === 0;
         let value: number = 0;
 
-        switch (funct3 & 0b011) {
+        switch (accessWidth) {
           case MemoryAccessWidth.Byte: {
             value = this.bus.read(addr, MemoryAccessWidth.Byte);
             if (shouldSignExtend) {
@@ -126,7 +142,7 @@ export class MemoryAccess extends PipelineStage {
 
         this.writebackValue.value = csrValue;
 
-        switch (funct3 & 0b11) {
+        switch (accessWidth) {
           case CSRInstructionType.RW: {
             if (csrShouldWrite) {
               this.csr.write(csrAddress, csrSource);

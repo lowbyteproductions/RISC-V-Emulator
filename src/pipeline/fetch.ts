@@ -10,8 +10,8 @@ export interface InstructionFetchParams {
 }
 
 export class InstructionFetch extends PipelineStage {
-  private pc = this.regs.addRegister('pc', MemoryMap.ProgramROMStart);
-  private pcPlus4 = this.regs.addRegister('pcPlus4', MemoryMap.ProgramROMStart);
+  pc = this.regs.addRegister('pc', MemoryMap.ProgramROMStart);
+  pcPlus4 = this.regs.addRegister('pcPlus4', MemoryMap.ProgramROMStart);
   private instruction = this.regs.addRegister('instruction');
 
   private bus: InstructionFetchParams['bus'];
