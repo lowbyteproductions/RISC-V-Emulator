@@ -42,7 +42,6 @@ class RV32ISystem {
   csr = new CSRInterface();
   trap = new Trap({
     csr: this.csr,
-    bus: this.bus,
     returnToPipelineMode: () => {
       this.pipelineState = PipelineState.InstructionFetch;
       this.cpuState = CPUState.Pipeline;

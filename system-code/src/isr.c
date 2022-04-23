@@ -7,33 +7,35 @@ ISR(__ISRExceptionCrash) {
   while (1) {}
 }
 
-VECTOR_TABLE(vectorTable) {
-  &__defaultISR, /* UserSoftwareInterrupt */
-  &__defaultISR, /* SupervisorSoftwareInterrupt */
-  &__defaultISR, /* Reserved0 */
-  &__defaultISR, /* MachineSoftwareInterrupt */
-  &__defaultISR, /* UserTimerInterrupt */
-  &__defaultISR, /* SupervisorTimerInterrupt */
-  &__defaultISR, /* Reserved1 */
-  &__defaultISR, /* MachineTimerInterrupt */
-  &__defaultISR, /* UserExternalInterrupt */
-  &__defaultISR, /* SupervisorExternalInterrupt */
-  &__defaultISR, /* Reserved2 */
-  &__defaultISR, /* MachineExternalInterrupt */
-  &__ISRExceptionCrash, /* InstructionAddressMisaligned */
-  &__ISRExceptionCrash, /* InstructionAccessFault */
-  &__ISRExceptionCrash, /* IllegalInstruction */
-  &__defaultISR, /* Breakpoint */
-  &__ISRExceptionCrash, /* LoadAddressMisaligned */
-  &__ISRExceptionCrash, /* LoadAccessFault */
-  &__ISRExceptionCrash, /* StoreAMOAddressMisaligned */
-  &__ISRExceptionCrash, /* StoreAMOAccessFault */
-  &__defaultISR, /* EnvironmentCallFromUMode */
-  &__defaultISR, /* EnvironmentCallFromSMode */
-  &__defaultISR, /* Reserved3 */
-  &__defaultISR, /* EnvironmentCallFromMMode */
-  &__defaultISR, /* InstructionPageFault */
-  &__ISRExceptionCrash, /* LoadPageFault */
-  &__defaultISR, /* Reserved4 */
-  &__ISRExceptionCrash, /* StoreAMOPageFault */
-};
+static void __attribute__((section (".vectortable"), naked)) vectorTable(void) {
+  asm volatile(
+    "j __defaultISR\n" /* UserSoftwareInterrupt */
+    "j __defaultISR\n" /* SupervisorSoftwareInterrupt */
+    "j __defaultISR\n" /* Reserved0 */
+    "j __defaultISR\n" /* MachineSoftwareInterrupt */
+    "j __defaultISR\n" /* UserTimerInterrupt */
+    "j __defaultISR\n" /* SupervisorTimerInterrupt */
+    "j __defaultISR\n" /* Reserved1 */
+    "j __defaultISR\n" /* MachineTimerInterrupt */
+    "j __defaultISR\n" /* UserExternalInterrupt */
+    "j __defaultISR\n" /* SupervisorExternalInterrupt */
+    "j __defaultISR\n" /* Reserved2 */
+    "j __defaultISR\n" /* MachineExternalInterrupt */
+    "j __ISRExceptionCrash\n" /* InstructionAddressMisaligned */
+    "j __ISRExceptionCrash\n" /* InstructionAccessFault */
+    "j __ISRExceptionCrash\n" /* IllegalInstruction */
+    "j __defaultISR\n" /* Breakpoint */
+    "j __ISRExceptionCrash\n" /* LoadAddressMisaligned */
+    "j __ISRExceptionCrash\n" /* LoadAccessFault */
+    "j __ISRExceptionCrash\n" /* StoreAMOAddressMisaligned */
+    "j __ISRExceptionCrash\n" /* StoreAMOAccessFault */
+    "j __defaultISR\n" /* EnvironmentCallFromUMode */
+    "j __defaultISR\n" /* EnvironmentCallFromSMode */
+    "j __defaultISR\n" /* Reserved3 */
+    "j __defaultISR\n" /* EnvironmentCallFromMMode */
+    "j __defaultISR\n" /* InstructionPageFault */
+    "j __ISRExceptionCrash\n" /* LoadPageFault */
+    "j __defaultISR\n" /* Reserved4 */
+    "j __ISRExceptionCrash\n" /* StoreAMOPageFault */
+  );
+}

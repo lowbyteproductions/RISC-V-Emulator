@@ -1,7 +1,5 @@
 import { CSRInterface } from "../csr";
-import { MemoryAccessWidth } from "../pipeline/memory-access";
 import { RegisterBank } from "../reigster-bank";
-import { SystemInterface } from "../system-interface";
 
 export enum MCause {
   // Interrupts
@@ -39,23 +37,21 @@ export enum MCause {
 
 export type TrapParams = {
   csr: CSRInterface;
-  bus: SystemInterface;
   setPc: (pc: number) => void;
   returnToPipelineMode: () => void;
 }
 
 export enum TrapState {
   Idle,
-  SetCSRLoadJump,
-  SetPc,
+  SetCSRJump,
   ReturnFromTrap,
+  SetPc,
 }
 
 export class Trap {
   regs = new RegisterBank();
 
   csr: TrapParams['csr'];
-  bus: TrapParams['bus'];
   setPc: TrapParams['setPc'];
   returnToPipelineMode: TrapParams['returnToPipelineMode'];
 
@@ -69,7 +65,6 @@ export class Trap {
 
   constructor(params: TrapParams) {
     this.csr = params.csr;
-    this.bus = params.bus;
     this.setPc = params.setPc;
     this.returnToPipelineMode = params.returnToPipelineMode;
   }
@@ -79,7 +74,7 @@ export class Trap {
     this.mcause.value = mcause;
     this.mtval.value = mtval;
 
-    this.state.value = TrapState.SetCSRLoadJump;
+    this.state.value = TrapState.SetCSRJump;
   }
 
   trapReturn() {
@@ -93,7 +88,7 @@ export class Trap {
         return;
       }
 
-      case TrapState.SetCSRLoadJump: {
+      case TrapState.SetCSRJump: {
         this.csr.mepc = this.mepc.value;
         this.csr.mcause = this.mcause.value;
         this.csr.mtval = this.mtval.value;
@@ -102,11 +97,13 @@ export class Trap {
         const isInterrupt = this.mcause.value & 0x8000_0000;
         const offset = isInterrupt ? 0 : 48;
 
-        const addr = this.csr.mtvec + offset + (index << 2);
+        const addr = (this.csr.mtvec & 0xfffffffc) + offset + (index << 2);
 
-        this.pcToSet.value = this.bus.read(addr, MemoryAccessWidth.Word);
+        this.setPc(addr);
+        this.returnToPipelineMode();
 
-        this.state.value = TrapState.SetPc;
+        this.state.value = TrapState.Idle;
+
         return;
       }
 
