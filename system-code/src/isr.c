@@ -4,6 +4,14 @@
 ISR(__defaultISR) {}
 
 ISR(__ISRExceptionCrash) {
+  // Load cause + related info into registers for debug purposes
+  asm volatile(
+    "csrr a0, 0x342\n" /* mcause */
+    "csrr a1, 0x341\n" /* mepc   */
+    "csrr a2, 0x343\n" /* mtval  */
+  );
+
+  // Infinite loop
   while (1) {}
 }
 
