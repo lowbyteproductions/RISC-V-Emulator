@@ -8,7 +8,6 @@ import { PipelineStage } from "./pipeline-stage";
 export interface MemoryAccessParams {
   shouldStall: () => boolean;
   getExecutionValuesIn: () => ReturnType<Execute['getExecutionValuesOut']>;
-  trap: (mepc: number, mcause: number, mtval: number) => void;
   bus: SystemInterface;
   csr: CSRInterface;
 }
@@ -24,12 +23,16 @@ export class MemoryAccess extends PipelineStage {
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
   private csr: MemoryAccessParams['csr'];
-  private trap: MemoryAccessParams['trap'];
 
   private pc = this.regs.addRegister('pc');
   private writebackValue = this.regs.addRegister('writebackValue');
   private rd = this.regs.addRegister('rd');
   private writebackValueValid = this.regs.addRegister('writebackValueValid');
+
+  private mepc = this.regs.addRegister('mepc');
+  private mcause = this.regs.addRegister('mcause');
+  private mtval = this.regs.addRegister('mtval');
+  private trap = this.regs.addRegister('trap');
 
   constructor(params: MemoryAccessParams) {
     super();
@@ -37,7 +40,6 @@ export class MemoryAccess extends PipelineStage {
     this.getExecutionValuesIn = params.getExecutionValuesIn;
     this.bus = params.bus;
     this.csr = params.csr;
-    this.trap = params.trap;
   }
 
   compute() {
@@ -100,7 +102,10 @@ export class MemoryAccess extends PipelineStage {
         }
       } else if (isLoad) {
         if (isUnaligned) {
-          this.trap(pcPlus4, MCause.LoadAddressMisaligned, instruction);
+          this.mepc.value = pcPlus4;
+          this.mcause.value = MCause.LoadAddressMisaligned;
+          this.mtval.value = instruction;
+          this.trap.value = 1;
           return;
         }
 
@@ -167,6 +172,8 @@ export class MemoryAccess extends PipelineStage {
       } else if (isAUIPC) {
         this.writebackValue.value = branchAddress;
       }
+    } else {
+      this.trap.value = 0;
     }
   }
 
@@ -180,6 +187,10 @@ export class MemoryAccess extends PipelineStage {
       | 'rd'
       | 'writebackValueValid'
       | 'pc'
+      | 'mepc'
+      | 'mcause'
+      | 'mtval'
+      | 'trap'
     >();
   }
 }

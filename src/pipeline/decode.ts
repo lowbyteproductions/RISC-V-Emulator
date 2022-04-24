@@ -7,7 +7,6 @@ export interface DecodeParams {
   shouldStall: () => boolean;
   getInstructionValuesIn: () => ReturnType<InstructionFetch['getInstructionValuesOut']>;
   regFile: Array<Register32>;
-  trapReturn: () => void;
 }
 
 export class Decode extends PipelineStage {
@@ -37,18 +36,18 @@ export class Decode extends PipelineStage {
   private csrShouldWrite = this.regs.addRegister('csrShouldWrite');
   private csrShouldRead = this.regs.addRegister('csrShouldRead');
 
+  private returnFromTrap = this.regs.addRegister('returnFromTrap');
+
   private regFile: DecodeParams['regFile'];
 
   private shouldStall: DecodeParams['shouldStall'];
   private getInstructionValuesIn: DecodeParams['getInstructionValuesIn'];
-  private trapReturn: DecodeParams['trapReturn'];
 
   constructor(params: DecodeParams) {
     super();
     this.shouldStall = params.shouldStall;
     this.getInstructionValuesIn = params.getInstructionValuesIn;
     this.regFile = params.regFile;
-    this.trapReturn = params.trapReturn;
   }
 
   compute() {
@@ -99,18 +98,13 @@ export class Decode extends PipelineStage {
       const jImm = signExtend32(21, (bit(31, i, 20) | slice32(19, 12, i, 19) | bit(20, i, 11) | slice32(30, 21, i, 10)) << 1);
       const bImm = signExtend32(13, (bit(31, i, 12) | bit(7, i, 11) | slice32(30, 25, i, 10) | slice32(11, 8, i, 4)) << 1);
 
-      const isMret = (
+      this.returnFromTrap.value = boolToInt(
            (this.isSystem.nextValue)
         && (this.rd.nextValue === 0)
         && (rs1Address === 0)
         && (rs1Address === 0)
         && (iImm === 0x302)
       );
-
-      if (isMret) {
-        this.trapReturn();
-        return;
-      }
 
       if (this.isStore.nextValue) {
         this.imm32.value = sImm;
@@ -130,6 +124,8 @@ export class Decode extends PipelineStage {
         console.log(`pc=0x${toHexString(this.pc.nextValue), 8}`);
         throw new Error('Not implemented');
       }
+    } else {
+      this.returnFromTrap.value = 0;
     }
   }
 
@@ -164,6 +160,7 @@ export class Decode extends PipelineStage {
       | 'csrShouldWrite'
       | 'csrShouldRead'
       | 'isAUIPC'
+      | 'returnFromTrap'
     >();
   }
 }

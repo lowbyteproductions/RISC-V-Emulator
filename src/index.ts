@@ -1,7 +1,7 @@
 import { WriteBack } from './pipeline/write-back';
-import { MemoryAccess, MemoryAccessWidth } from './pipeline/memory-access';
+import { MemoryAccess } from './pipeline/memory-access';
 import { InstructionFetch } from './pipeline/fetch';
-import { toHexString } from './util';
+import { boolToInt, toHexString } from './util';
 import { SystemInterface } from './system-interface';
 import { RAMDevice } from './system-interface/ram';
 import { ROMDevice } from './system-interface/rom';
@@ -16,6 +16,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ELFDebugInfo, getELFDebugInfo } from './debug/elf';
 import { Trap } from './trap';
+import { RegisterBank } from './reigster-bank';
 
 enum PipelineState {
   InstructionFetch,
@@ -31,8 +32,12 @@ enum CPUState {
 }
 
 class RV32ISystem {
+  regs = new RegisterBank();
+  trapStall = 0; // This is acting as a combinational signal, not a reg
+  mret = 0; // This is acting as a combinational signal, not a reg
+
   pipelineState = PipelineState.InstructionFetch;
-  cpuState = CPUState.Pipeline;
+  cpuState = this.regs.addRegister('cpuState', CPUState.Pipeline);
 
   rom = new ROMDevice();
   ram = new RAMDevice();
@@ -42,15 +47,8 @@ class RV32ISystem {
   csr = new CSRInterface();
   trap = new Trap({
     csr: this.csr,
-    returnToPipelineMode: () => {
-      this.pipelineState = PipelineState.InstructionFetch;
-      this.cpuState = CPUState.Pipeline;
-    },
-    setPc: (pc: number) => {
-      // TODO: Fix this!
-      this.IF.pc.value = pc;
-      this.IF.pcPlus4.value = pc;
-    }
+    beginTrap: () => Boolean(this.MEM.getMemoryAccessValuesOut().trap),
+    beginTrapReturn: () => Boolean(this.DE.getDecodedValuesOut().returnFromTrap)
   });
 
   private breakpoints = new Set<number>();
@@ -58,45 +56,67 @@ class RV32ISystem {
   private stepMode = false;
 
   IF = new InstructionFetch({
-    shouldStall: () => this.pipelineState !== PipelineState.InstructionFetch,
+    shouldStall: () => (this.pipelineState !== PipelineState.InstructionFetch) || Boolean(this.trapStall),
     getBranchAddress: () => this.EX.getExecutionValuesOut().branchAddress,
     getBranchAddressValid: () => Boolean(this.EX.getExecutionValuesOut().branchValid),
     bus: this.bus,
   });
 
   DE: Decode = new Decode({
-    shouldStall: () => this.pipelineState !== PipelineState.Decode,
+    shouldStall: () => (this.pipelineState !== PipelineState.Decode) || Boolean(this.trapStall),
     getInstructionValuesIn: () => this.IF.getInstructionValuesOut(),
-    regFile: this.regFile,
-    trapReturn: () => {
-      this.trap.trapReturn();
-      this.cpuState = CPUState.Trap;
-    }
+    regFile: this.regFile
   });
 
   EX: Execute = new Execute({
-    shouldStall: () => this.pipelineState !== PipelineState.Execute,
+    shouldStall: () => (this.pipelineState !== PipelineState.Execute) || Boolean(this.trapStall),
     getDecodedValuesIn: () => this.DE.getDecodedValuesOut()
   });
 
   MEM = new MemoryAccess({
-    shouldStall: () => this.pipelineState !== PipelineState.MemoryAccess,
+    shouldStall: () => (this.pipelineState !== PipelineState.MemoryAccess) || Boolean(this.trapStall),
     getExecutionValuesIn: () => this.EX.getExecutionValuesOut(),
     bus: this.bus,
     csr: this.csr,
-    trap: (mepc, mcause, mtval) => {
-      this.trap.trapException(mepc, mcause, mtval);
-      this.cpuState = CPUState.Trap;
-    }
   });
 
   WB = new WriteBack({
-    shouldStall: () => this.pipelineState !== PipelineState.WriteBack,
+    shouldStall: () => (this.pipelineState !== PipelineState.WriteBack) || Boolean(this.trapStall),
     regFile: this.regFile,
     getMemoryAccessValuesIn: () => this.MEM.getMemoryAccessValuesOut()
   })
 
   compute() {
+    const memValues = this.MEM.getMemoryAccessValuesOut();
+    this.mret = this.DE.getDecodedValuesOut().returnFromTrap;
+    this.trapStall = boolToInt(this.cpuState.value === CPUState.Trap) | memValues.trap | this.mret;
+
+    if (this.trapStall && this.cpuState.value === CPUState.Pipeline) {
+      this.cpuState.value = CPUState.Trap;
+
+      // TODO: Some sort of better multiplexer selector abstraction?
+      if (memValues.trap) {
+        this.trap.mcause.value = memValues.mcause;
+        this.trap.mepc.value = memValues.mepc;
+        this.trap.mtval.value = memValues.mtval;
+      }
+
+    } else if ((this.cpuState.value === CPUState.Trap) && this.trap.returnToPipelineMode.value) {
+      this.cpuState.value = CPUState.Pipeline;
+      this.pipelineState = PipelineState.WriteBack;
+
+      if (this.trap.setPc.value) {
+        this.IF.pc.value = this.trap.pcToSet.value;
+        this.IF.pcPlus4.value = this.trap.pcToSet.value;
+      }
+    }
+
+    if ((this.cpuState.value === CPUState.Pipeline) && this.mret) {
+      this.cpuState.value = CPUState.Trap;
+      this.pipelineState = PipelineState.WriteBack;
+    }
+
+
     this.IF.compute();
     this.DE.compute();
     this.EX.compute();
@@ -115,6 +135,7 @@ class RV32ISystem {
     this.regFile.forEach(r => r.latchNext());
     this.csr.latchNext();
     this.trap.latchNext();
+    this.regs.latchNext();
   }
 
   addBreakpoint(address: number) {
@@ -175,11 +196,10 @@ class RV32ISystem {
   }
 
   cycle() {
-    const currentState = this.cpuState;
     this.compute();
     this.latchNext();
 
-    if (currentState === CPUState.Pipeline) {
+    if (this.cpuState.value === CPUState.Pipeline) {
       if (this.pipelineState === PipelineState.InstructionFetch) {
         this.onInstructionFetch();
       }
