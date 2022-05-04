@@ -6,10 +6,10 @@
 uint32_t otherGlobal = 42;
 
 int main() {
-  int result;
-  asm("rdcycle %0" : "=r"(result));
-
   WRITE_TO(RAM_START + 0x100, otherGlobal);
+
+  asm("ecall");
+  asm("ebreak");
 
   // Loop forever
   while (1) {}

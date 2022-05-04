@@ -47,7 +47,10 @@ class RV32ISystem {
   csr = new CSRInterface();
   trap = new Trap({
     csr: this.csr,
-    beginTrap: () => Boolean(this.MEM.getMemoryAccessValuesOut().trap),
+    beginTrap: () => Boolean(
+        this.MEM.getMemoryAccessValuesOut().trap
+      | this.DE.getDecodedValuesOut().trap
+    ),
     beginTrapReturn: () => Boolean(this.DE.getDecodedValuesOut().returnFromTrap)
   });
 
@@ -88,17 +91,23 @@ class RV32ISystem {
 
   compute() {
     const memValues = this.MEM.getMemoryAccessValuesOut();
+    const decodeValues = this.DE.getDecodedValuesOut();
     this.mret = this.DE.getDecodedValuesOut().returnFromTrap;
-    this.trapStall = boolToInt(this.cpuState.value === CPUState.Trap) | memValues.trap | this.mret;
+    this.trapStall = boolToInt(this.cpuState.value === CPUState.Trap) | memValues.trap | decodeValues.trap | this.mret;
 
     if (this.trapStall && this.cpuState.value === CPUState.Pipeline) {
       this.cpuState.value = CPUState.Trap;
 
-      // TODO: Some sort of better multiplexer selector abstraction?
-      if (memValues.trap) {
-        this.trap.mcause.value = memValues.mcause;
-        this.trap.mepc.value = memValues.mepc;
-        this.trap.mtval.value = memValues.mtval;
+      const trapValues = (memValues.trap)
+        ? memValues
+      : (decodeValues.trap)
+        ? decodeValues
+      : null;
+
+      if (trapValues) {
+        this.trap.mcause.value = trapValues.mcause;
+        this.trap.mepc.value = trapValues.mepc;
+        this.trap.mtval.value = trapValues.mtval;
       }
 
     } else if ((this.cpuState.value === CPUState.Trap) && this.trap.returnToPipelineMode.value) {
@@ -116,6 +125,13 @@ class RV32ISystem {
       this.pipelineState.value = PipelineState.InstructionFetch;
     }
 
+    if (this.trap.flush.value) {
+      this.IF.reset();
+      this.DE.reset();
+      this.EX.reset();
+      this.MEM.reset();
+      this.WB.reset();
+    }
 
     this.IF.compute();
     this.DE.compute();
@@ -230,8 +246,8 @@ const main = async () => {
   rv.loadDebugInfo(debugInfo);
   rv.rom.load(program);
 
-  rv.addBreakpointByName('_start');
-  rv.setStepMode(true);
+  rv.addBreakpointByName('main');
+  // rv.setStepMode(true);
 
   while (true) {
     rv.cycle();

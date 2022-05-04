@@ -21,4 +21,8 @@ export class RegisterBank {
       return acc;
     }, {}) as RegisterValuesOut<KS>;
   }
+
+  reset() {
+    Object.values(this.registers).forEach(r => r.reset());
+  }
 }

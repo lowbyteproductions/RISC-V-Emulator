@@ -1,4 +1,5 @@
 import { Register32 } from "../register32";
+import { MCause } from "../trap";
 import { bit, boolToInt, signExtend32, slice32, toHexString } from "../util";
 import { InstructionFetch } from "./fetch";
 import { PipelineStage } from "./pipeline-stage";
@@ -28,6 +29,7 @@ export class Decode extends PipelineStage {
   private isJAL = this.regs.addRegister('isJAL');
   private isSystem = this.regs.addRegister('isSystem');
   private isAUIPC = this.regs.addRegister('isAUIPC');
+  private isFence = this.regs.addRegister('isFence');
   private imm32 = this.regs.addRegister('imm32');
   private pc = this.regs.addRegister('pc');
   private pcPlus4 = this.regs.addRegister('pcPlus4');
@@ -35,6 +37,11 @@ export class Decode extends PipelineStage {
   private csrSource = this.regs.addRegister('csrSource');
   private csrShouldWrite = this.regs.addRegister('csrShouldWrite');
   private csrShouldRead = this.regs.addRegister('csrShouldRead');
+
+  private mepc = this.regs.addRegister('mepc');
+  private mcause = this.regs.addRegister('mcause');
+  private mtval = this.regs.addRegister('mtval');
+  private trap = this.regs.addRegister('trap');
 
   private returnFromTrap = this.regs.addRegister('returnFromTrap');
 
@@ -77,6 +84,7 @@ export class Decode extends PipelineStage {
       this.isJAL.value    = boolToInt(this.opcode.nextValue === 0b1101111);
       this.isSystem.value = boolToInt(this.opcode.nextValue === 0b1110011);
       this.isAUIPC.value  = boolToInt(this.opcode.nextValue === 0b0010111);
+      this.isFence.value  = boolToInt(this.opcode.nextValue === 0b0001111);
       const isJALR        = boolToInt(this.opcode.nextValue === 0b1100111);
 
       this.isJump.value = this.isJAL.nextValue | isJALR;
@@ -98,13 +106,35 @@ export class Decode extends PipelineStage {
       const jImm = signExtend32(21, (bit(31, i, 20) | slice32(19, 12, i, 19) | bit(20, i, 11) | slice32(30, 21, i, 10)) << 1);
       const bImm = signExtend32(13, (bit(31, i, 12) | bit(7, i, 11) | slice32(30, 25, i, 10) | slice32(11, 8, i, 4)) << 1);
 
-      this.returnFromTrap.value = boolToInt(
+      const systemInstructionBase = (
            (this.isSystem.nextValue)
         && (this.rd.nextValue === 0)
         && (rs1Address === 0)
         && (rs1Address === 0)
-        && (iImm === 0x302)
       );
+
+      // MRET Instruction
+      this.returnFromTrap.value = boolToInt(systemInstructionBase && (iImm === 0x302));
+
+      const isECALL = systemInstructionBase && (iImm === 0);
+      const isEBREAK = systemInstructionBase && (iImm === 1);
+
+      if (isECALL) {
+        this.mepc.value = pcPlus4;
+        this.mcause.value = MCause.EnvironmentCallFromMMode;
+        this.mtval.value = 0;
+        this.trap.value = 1;
+        return;
+      }
+
+      if (isEBREAK) {
+        debugger;
+        // this.mepc.value = pcPlus4;
+        // this.mcause.value = MCause.Breakpoint;
+        // this.mtval.value = 0;
+        // this.trap.value = 1;
+        return;
+      }
 
       if (this.isStore.nextValue) {
         this.imm32.value = sImm;
@@ -118,7 +148,7 @@ export class Decode extends PipelineStage {
         this.imm32.value = bImm;
       } else if (isJALR) {
         this.imm32.value = slice32(11, 1, iImm, 11);
-      } else if (this.isSystem.nextValue) {
+      } else if (this.isSystem.nextValue | this.isFence.nextValue) {
         // no op
       } else {
         console.log(`pc=0x${toHexString(this.pc.nextValue), 8}`);
@@ -161,6 +191,10 @@ export class Decode extends PipelineStage {
       | 'csrShouldRead'
       | 'isAUIPC'
       | 'returnFromTrap'
+      | 'mepc'
+      | 'mcause'
+      | 'mtval'
+      | 'trap'
     >();
   }
 }

@@ -1,45 +1,41 @@
-# Episode 10: Exceptional Trap Handling
+# Episode 11: The last instructions!
 
 *Goals*:
 
-- **Build** the whole flow of the "Load address misaligned" trap
+- **Implement** The rest of the remaining instructions
+- **Configure** The `mstatus` register correctly
+- **Implement** A reset mechanism
+- **Maybe** The rest of the exception triggers?
 
 ## Follow up business
 
-- 0x10000000: j _start
-  - git show 509785f
-  - Even before the vector table, we need to ensure that the CPU knows where to find the code
-  - This instruction should always be the first thing!
+- bootloader.S -> crt0.S (88ba1fa)
+  - https://en.wikipedia.org/wiki/Crt0
 
-- Added some levelled-up debugging
-  - git show 012d363
-  - Disassembly now visible when stepping!
-  - Comes directly from the ELF via objdump
-  - Basically gained the ability to set breakpoints on functions for free
+- Vector Table Simplification (dc4aae3)
+  - Instead of being a table of addresses, it's now a table of jump instructions
+  - This is more typical, but also allows for a simpler design
+  - The Trap hardware no longer needs a reference to the system bus, and can get back to the pipeline sooner!
+
+- Refactored the trap mechanism to use registers instead of function calls (91039ef)
 
 ## Agenda
 
-- Can detect in the memory access stage
-- Stall (flush) the pipeline (set state to trap)
+- Build in a reset mechanism
+  - Need it for all hardware modules, but especially for the pipeline
+  - We should really bring the CPU up in a reset state, since that's the only true way to ensure all registers are really at their correct starting value
+  - In the pipeline, we can use it prevent other branching conditions from affecting traps
 
-- Trap module reads pc, current instruction, cause
-  - Sets those CSRs (directly)
-  - Loads the jump address from the table
-  - Sets the pc (plus 4 in this case)
-  - Sets the state to fetch
+- Take care of `mstatus`
+  - Should begin in m-mode with the relevant bits set
+  - Stack up the `xIE`/`xPIE` bits properly when entering/exiting a trap
 
-- Implement the `mret` instruction
-  - Recognise the pattern in decode stage
-  - Signal to trap (transfers machine state to trap again)
-  - Trap places `mepc` back in `pc`, resets pipeline
+- Implement `ECALL` and `EBREAK` instructions
+  - These work pretty much the same as the exception handling for `Load Address Misaligned`
+  - Both just cause exceptions to occur
+  - For `EBREAK`, we can maybe set a flag in the RV32I class and go into step mode
 
-- In the handler
-  - Disable interrupts
-  - Save the context to the stack
-  - Read mtval (instruction)
-  - Determine what kind of read to do (16/32 bit)
-  - Make the two reads
-  - Determine which register to write to
-  - Switch statement with asm blocks writing to the specified register
-  - Enable interrupts
-  - Return from interrupt
+- Implement `FENCE` as nop
+  - Generic nop in the decode stage
+
+- Implement more exception triggers?

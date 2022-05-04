@@ -15,6 +15,10 @@ ISR(__ISRExceptionCrash) {
   while (1) {}
 }
 
+ISR(ECALL) {
+  volatile uint32_t a = 55;
+}
+
 static void __attribute__((section (".vectortable"), naked)) vectorTable(void) {
   asm volatile(
     "j __defaultISR\n" /* UserSoftwareInterrupt */
@@ -40,7 +44,7 @@ static void __attribute__((section (".vectortable"), naked)) vectorTable(void) {
     "j __defaultISR\n" /* EnvironmentCallFromUMode */
     "j __defaultISR\n" /* EnvironmentCallFromSMode */
     "j __defaultISR\n" /* Reserved3 */
-    "j __defaultISR\n" /* EnvironmentCallFromMMode */
+    "j ECALL\n" /* EnvironmentCallFromMMode */
     "j __defaultISR\n" /* InstructionPageFault */
     "j __ISRExceptionCrash\n" /* LoadPageFault */
     "j __defaultISR\n" /* Reserved4 */
