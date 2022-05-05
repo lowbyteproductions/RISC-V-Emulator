@@ -11,7 +11,7 @@ INC_DIR		= inc
 
 ################# Flags #################
 INCLUDE				=-I ./$(INC_DIR)
-CFLAGS				=-ffreestanding -nostdlib
+CFLAGS				=-g -ffreestanding -nostdlib
 OBJCOPY_FLAGS	=-O binary
 LINKER_FLAGS	=-T
 
@@ -37,11 +37,11 @@ $(BUILD_DIR)/main.elf : $(O_FILES)
 
 $(BUILD_DIR)/%.o : $(SRC_DIR)/%.c
 	$(MKDIR) $(dir $@)
-	$(CC) $(INCLUDE) -c $(CCFLAGS) $< -o $@
+	$(CC) $(INCLUDE) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/%.o : $(SRC_DIR)/%.S
 	$(MKDIR) $(dir $@)
-	$(CC) $(INCLUDE) -c $(CCFLAGS) $< -o $@
+	$(CC) $(INCLUDE) -c $(CFLAGS) $< -o $@
 
 .PHONY: clean all
 clean:

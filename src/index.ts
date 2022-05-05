@@ -10,7 +10,7 @@ import { Register32 } from './register32';
 import { Execute } from './pipeline/execute';
 import { CSRInterface } from './csr';
 
-import {debugObj} from './debug';
+import {BreakpointDebug, debugObj, DebugOutput} from './debug';
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -45,6 +45,9 @@ class RV32ISystem {
 
   bus = new SystemInterface(this.rom, this.ram);
   csr = new CSRInterface();
+
+  debug = new BreakpointDebug(pc => this.onBreakpoint(pc));
+
   trap = new Trap({
     csr: this.csr,
     beginTrap: () => Boolean(
@@ -53,10 +56,6 @@ class RV32ISystem {
     ),
     beginTrapReturn: () => Boolean(this.DE.getDecodedValuesOut().returnFromTrap)
   });
-
-  private breakpoints = new Set<number>();
-  private debugInfo: ELFDebugInfo;
-  private stepMode = false;
 
   IF = new InstructionFetch({
     shouldStall: () => (this.pipelineState.value !== PipelineState.InstructionFetch) || Boolean(this.trapStall),
@@ -93,6 +92,10 @@ class RV32ISystem {
     getMemoryAccessValuesIn: () => this.MEM.getMemoryAccessValuesOut(),
     resetSignal: () => this.trap.flush.value
   });
+
+  onBreakpoint(pc: number) {
+    debugger;
+  }
 
   compute() {
     const memValues = this.MEM.getMemoryAccessValuesOut();
@@ -169,61 +172,10 @@ class RV32ISystem {
     this.regs.latchNext();
   }
 
-  addBreakpoint(address: number) {
-    this.breakpoints.add(address);
-  }
-
-  addBreakpointByName(name: string, offset = 0) {
-    if (!this.debugInfo) {
-      throw new Error('No ELF debugging info loaded');
-    }
-    if (!(name in this.debugInfo.addressByFunctionName)) {
-      throw new Error(`Cannot find function '${name}' in ELF debugging info`);
-    }
-
-    this.breakpoints.add(this.debugInfo.addressByFunctionName[name] + offset);
-  }
-
-  removeBreakpoint(address: number) {
-    this.breakpoints.delete(address);
-  }
-
-  loadDebugInfo(debugInfo: ELFDebugInfo) {
-    this.debugInfo = debugInfo;
-  }
-
-  setStepMode(enabled: boolean) {
-    this.stepMode = enabled;
-  }
-
   onInstructionFetch() {
     const pc = this.IF.pc.nextValue; // Look at the next value, since the current isn't latched yet
     debugObj.pc = pc;
-
-    let shouldBreak = false;
-
-    if (this.stepMode || this.breakpoints.has(pc)) {
-      this.stepMode = true;
-      shouldBreak = true;
-      debugObj.showDisassembly = true;
-    }
-
-    if (debugObj.showDisassembly) {
-      if (this.debugInfo && pc in this.debugInfo.assemblyByAddress) {
-        if (pc in this.debugInfo.functionNameByAddress) {
-          console.log(`${this.debugInfo.functionNameByAddress[pc]}:`);
-        }
-
-        const ins = this.debugInfo.assemblyByAddress[pc];
-        console.log(`${toHexString(pc, 8)}: ${ins.assembly}`);
-      } else {
-        console.log(`${toHexString(pc, 8)}: <info unavailable>`);
-      }
-    }
-
-    if (shouldBreak) {
-      debugger;
-    }
+    this.debug.onInstructionFetch(pc);
   }
 
   cycle() {
@@ -235,16 +187,20 @@ class RV32ISystem {
 const main = async () => {
   const rv = new RV32ISystem();
 
-  const file = await fs.readFile(path.join(__dirname, '..', 'system-code', 'build', 'main.bin'));
-  const debugInfo = await getELFDebugInfo(path.join(__dirname, '..', 'system-code', 'build', 'main.elf'));
+  const binPath = path.join(__dirname, '..', 'system-code', 'build', 'main.bin');
+  const elfPath = path.join(__dirname, '..', 'system-code', 'build', 'main.elf');
+
+  const file = await fs.readFile(binPath);
+  const debugInfo = await getELFDebugInfo(elfPath);
   const program = new Uint32Array(file.buffer);
 
   debugObj.level = 'error';
-  rv.loadDebugInfo(debugInfo);
+  rv.debug.loadDebugInfo(debugInfo, elfPath);
   rv.rom.load(program);
 
-  rv.addBreakpointByName('main');
-  // rv.setStepMode(true);
+  debugger;
+  rv.debug.addBreakpointByName('_start');
+  // rv.debug.setStepMode(true);
 
   while (true) {
     rv.cycle();
