@@ -10,6 +10,7 @@ export interface MemoryAccessParams {
   getExecutionValuesIn: () => ReturnType<Execute['getExecutionValuesOut']>;
   bus: SystemInterface;
   csr: CSRInterface;
+  resetSignal: () => number;
 }
 
 export enum MemoryAccessWidth {
@@ -23,6 +24,7 @@ export class MemoryAccess extends PipelineStage {
   private getExecutionValuesIn: MemoryAccessParams['getExecutionValuesIn'];
   private bus: MemoryAccessParams['bus'];
   private csr: MemoryAccessParams['csr'];
+  private resetSignal: MemoryAccessParams['resetSignal'];
 
   private pc = this.regs.addRegister('pc');
   private writebackValue = this.regs.addRegister('writebackValue');
@@ -40,10 +42,13 @@ export class MemoryAccess extends PipelineStage {
     this.getExecutionValuesIn = params.getExecutionValuesIn;
     this.bus = params.bus;
     this.csr = params.csr;
+    this.resetSignal = params.resetSignal;
   }
 
   compute() {
-    if (!this.shouldStall()) {
+    if (this.resetSignal()) {
+      this.reset();
+    } else if (!this.shouldStall()) {
       const {
         aluResult,
         rd,

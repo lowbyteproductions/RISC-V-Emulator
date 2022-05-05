@@ -8,6 +8,7 @@ export interface DecodeParams {
   shouldStall: () => boolean;
   getInstructionValuesIn: () => ReturnType<InstructionFetch['getInstructionValuesOut']>;
   regFile: Array<Register32>;
+  resetSignal: () => number;
 }
 
 export class Decode extends PipelineStage {
@@ -46,6 +47,7 @@ export class Decode extends PipelineStage {
   private returnFromTrap = this.regs.addRegister('returnFromTrap');
 
   private regFile: DecodeParams['regFile'];
+  private resetSignal: DecodeParams['resetSignal'];
 
   private shouldStall: DecodeParams['shouldStall'];
   private getInstructionValuesIn: DecodeParams['getInstructionValuesIn'];
@@ -54,11 +56,14 @@ export class Decode extends PipelineStage {
     super();
     this.shouldStall = params.shouldStall;
     this.getInstructionValuesIn = params.getInstructionValuesIn;
+    this.resetSignal = params.resetSignal;
     this.regFile = params.regFile;
   }
 
   compute() {
-    if (!this.shouldStall()) {
+    if (this.resetSignal()) {
+      this.reset();
+    } else if (!this.shouldStall()) {
       const {instruction, pc, pcPlus4} = this.getInstructionValuesIn();
 
       this.pc.value = pc;

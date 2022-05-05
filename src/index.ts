@@ -63,17 +63,20 @@ class RV32ISystem {
     getBranchAddress: () => this.EX.getExecutionValuesOut().branchAddress,
     getBranchAddressValid: () => Boolean(this.EX.getExecutionValuesOut().branchValid),
     bus: this.bus,
+    resetSignal: () => this.trap.flush.value
   });
 
   DE: Decode = new Decode({
     shouldStall: () => (this.pipelineState.value !== PipelineState.Decode) || Boolean(this.trapStall),
     getInstructionValuesIn: () => this.IF.getInstructionValuesOut(),
-    regFile: this.regFile
+    regFile: this.regFile,
+    resetSignal: () => this.trap.flush.value
   });
 
   EX: Execute = new Execute({
     shouldStall: () => (this.pipelineState.value !== PipelineState.Execute) || Boolean(this.trapStall),
-    getDecodedValuesIn: () => this.DE.getDecodedValuesOut()
+    getDecodedValuesIn: () => this.DE.getDecodedValuesOut(),
+    resetSignal: () => this.trap.flush.value
   });
 
   MEM = new MemoryAccess({
@@ -81,13 +84,15 @@ class RV32ISystem {
     getExecutionValuesIn: () => this.EX.getExecutionValuesOut(),
     bus: this.bus,
     csr: this.csr,
+    resetSignal: () => this.trap.flush.value
   });
 
   WB = new WriteBack({
     shouldStall: () => (this.pipelineState.value !== PipelineState.WriteBack) || Boolean(this.trapStall),
     regFile: this.regFile,
-    getMemoryAccessValuesIn: () => this.MEM.getMemoryAccessValuesOut()
-  })
+    getMemoryAccessValuesIn: () => this.MEM.getMemoryAccessValuesOut(),
+    resetSignal: () => this.trap.flush.value
+  });
 
   compute() {
     const memValues = this.MEM.getMemoryAccessValuesOut();
@@ -123,14 +128,6 @@ class RV32ISystem {
     if ((this.cpuState.value === CPUState.Pipeline) && this.mret) {
       this.cpuState.value = CPUState.Trap;
       this.pipelineState.value = PipelineState.InstructionFetch;
-    }
-
-    if (this.trap.flush.value) {
-      this.IF.reset();
-      this.DE.reset();
-      this.EX.reset();
-      this.MEM.reset();
-      this.WB.reset();
     }
 
     this.IF.compute();

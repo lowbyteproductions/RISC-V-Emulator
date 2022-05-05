@@ -6,6 +6,7 @@ import { PipelineStage } from "./pipeline-stage";
 export interface ExecuteParams {
   shouldStall: () => boolean;
   getDecodedValuesIn: () => ReturnType<Decode['getDecodedValuesOut']>;
+  resetSignal: () => number;
 }
 
 export enum ALUOperation {
@@ -31,6 +32,7 @@ export enum BranchType {
 export class Execute extends PipelineStage {
   private shouldStall: ExecuteParams['shouldStall'];
   private getDecodedValuesIn: ExecuteParams['getDecodedValuesIn'];
+  private resetSignal: ExecuteParams['resetSignal'];
 
   private aluResult = this.regs.addRegister('aluResult');
   private rd = this.regs.addRegister('rd');
@@ -59,10 +61,13 @@ export class Execute extends PipelineStage {
     super();
     this.shouldStall = params.shouldStall;
     this.getDecodedValuesIn = params.getDecodedValuesIn;
+    this.resetSignal = params.resetSignal;
   }
 
   compute() {
-    if (!this.shouldStall()) {
+    if (this.resetSignal()) {
+      this.reset();
+    } else if (!this.shouldStall()) {
       const decoded = this.getDecodedValuesIn();
 
       const {imm32} = decoded;

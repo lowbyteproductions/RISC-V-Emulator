@@ -7,6 +7,7 @@ export interface InstructionFetchParams {
   shouldStall: () => boolean;
   getBranchAddress: () => number;
   getBranchAddressValid: () => boolean;
+  resetSignal: () => number;
 }
 
 export class InstructionFetch extends PipelineStage {
@@ -18,17 +19,21 @@ export class InstructionFetch extends PipelineStage {
   private getBranchAddress: InstructionFetchParams['getBranchAddress'];
   private getBranchAddressValid: InstructionFetchParams['getBranchAddressValid'];
   private shouldStall: InstructionFetchParams['shouldStall'];
+  private resetSignal: InstructionFetchParams['resetSignal'];
 
   constructor(params: InstructionFetchParams) {
     super();
     this.bus = params.bus;
     this.shouldStall = params.shouldStall;
     this.getBranchAddress = params.getBranchAddress;
+    this.resetSignal = params.resetSignal;
     this.getBranchAddressValid = params.getBranchAddressValid;
   }
 
   compute() {
-    if (!this.shouldStall()) {
+    if (this.resetSignal()) {
+      this.reset();
+    } else if (!this.shouldStall()) {
       this.pc.value = this.getBranchAddressValid() ? this.getBranchAddress() : this.pcPlus4.value;
       this.pcPlus4.value = this.pc.nextValue + 4;
       this.instruction.value = this.bus.read(this.pc.nextValue, MemoryAccessWidth.Word);
